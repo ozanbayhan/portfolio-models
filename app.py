@@ -134,8 +134,13 @@ for _k in ("bist_text", "other_text", "start", "end", "models", "train", "test",
 
 
 @st.cache_resource(show_spinner=False)
-def get_engine(url: str):
+def _engine(url: str, schema: tuple[str, ...]):
+    # schema anahtarı: yeni tablo eklendiğinde (kod güncellemesi) önbellek yenilenir ve tablo oluşturulur.
     return store.make_engine(url)
+
+
+def get_engine(url: str):
+    return _engine(url, tuple(sorted(store.metadata.tables)))
 
 
 def current_user() -> str | None:
