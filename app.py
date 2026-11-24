@@ -34,7 +34,8 @@ def _reload_own_modules_if_changed() -> None:
     # yenilenir; taze süreçte henüz yüklenmedikleri için aşağıdaki döngü hiçbir şey yapmaz.
     # Bağımlılık sırasıyla: alt modüller önce, paket ve sayfa sonra
     for name in ("portfolio_models.data", "portfolio_models.adapters", "portfolio_models.models",
-                 "portfolio_models.backtest", "portfolio_models.store", "portfolio_models.holdings",
+                 "portfolio_models.backtest", "portfolio_models.store", "portfolio_models.fund_prices",
+                 "portfolio_models.holdings",
                  "portfolio_models", "holdings_page"):
         if name in sys.modules:
             importlib.reload(sys.modules[name])
