@@ -11,6 +11,16 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio_models import fit_weights, store
+from portfolio_models.benchmarks import (
+    BENCHMARK_TICKERS,
+    benchmark_prices,
+    compare,
+    daily_cpi,
+    fetch_cpi,
+    inflows_by_day,
+    summary as bench_summary,
+    twr_index,
+)
 from portfolio_models.fund_prices import (
     editor_frame,
     from_editor,
@@ -71,6 +81,68 @@ FUND_KIND = "fund_prices"  # kayıt türü (store)
 def cached_market(assets: tuple[tuple[str, str], ...], years: int):
     """Piyasa verisi yalnızca varlık listesine ve döneme göre önbelleklenir (miktar değişince yeniden indirilmez)."""
     return fetch_market_data([make_position(k, s, 1.0) for k, s in assets], years=years)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def cached_cpi() -> pd.Series:
+    return fetch_cpi("2015-01")
+
+
+PERIODS = {"1 ay": 30, "3 ay": 91, "6 ay": 182, "1 yıl": 365, "Yılbaşından": "ytd", "Tümü": None}
+
+
+def _comparison(port_vals: pd.Series, inflows: pd.Series | None, years: int) -> None:
+    st.subheader("Karşılaştırma")
+    if port_vals is None or len(port_vals.dropna()) < 5:
+        st.caption("Karşılaştırma için yeterli portföy geçmişi yok.")
+        return
+    period = st.segmented_control("Dönem", list(PERIODS), default="1 yıl", key="cmp_period",
+                                  label_visibility="collapsed") or "1 yıl"
+    end = port_vals.index.max()
+    p = PERIODS[period]
+    if p is None:
+        start = port_vals.index.min()
+    elif p == "ytd":
+        start = pd.Timestamp(year=end.year, month=1, day=1)
+    else:
+        start = end - pd.Timedelta(days=p)
+    start = max(start, port_vals.index.min())
+    try:
+        bclose, _ = cached_market(tuple((KIND_YAHOO, tk) for tk in BENCHMARK_TICKERS), years)
+    except Exception as exc:  # noqa: BLE001
+        st.warning(f"Benchmark verisi alınamadı: {exc}")
+        return
+    index = twr_index(port_vals, inflows)
+    cpi = cached_cpi()
+    bench = benchmark_prices(bclose)
+    norm = compare(index, bench, daily_cpi(cpi, bench.index.union(index.index)), start, end)
+    if norm.empty:
+        st.caption("Seçilen dönem için veri yok.")
+        return
+    fig = go.Figure()
+    for c in norm.columns:
+        dash = "dot" if c == "Enflasyon (TÜFE)" else None
+        width = 3 if c == "Portföyüm" else 1.5
+        fig.add_scatter(x=norm.index, y=norm[c], name=c, mode="lines", line=dict(dash=dash, width=width))
+    fig.add_hline(y=100, line_width=1, line_color="gray", opacity=0.4)
+    fig.update_layout(height=400, margin=dict(t=10, b=10, l=10, r=10), yaxis_title="Başlangıç = 100",
+                      legend=dict(orientation="h", y=-0.12), hovermode="x unified")
+    st.plotly_chart(fig, width="stretch")
+    s = bench_summary(norm)
+    if not s.empty:
+        for col in ("Başlangıç", "Bitiş"):
+            s[col] = [pd.Timestamp(v).strftime("%d.%m.%Y") for v in s[col]]
+        st.dataframe(
+            s.style.format({"Toplam getiri": "{:+.1%}", "Yıllık": "{:+.1%}", "Reel (TÜFE'ye göre)": "{:+.1%}"},
+                           na_rep="—"),
+            hide_index=True, width="stretch",
+        )
+    notes = ["Portföy getirisi zaman ağırlıklıdır (TWR): para yatırma/çekme ve alımların etkisi ayıklanır."]
+    if not cpi.empty:
+        notes.append(f"TÜFE: OECD, {cpi.index.max():%m.%Y} ayına kadar; sonrası için reel getiri hesaplanmaz.")
+    else:
+        notes.append("TÜFE verisi şu an alınamadı.")
+    st.caption(" ".join(notes))
 
 
 def _records(df: pd.DataFrame, columns: list[str]) -> list[dict]:
@@ -621,6 +693,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
         start = first_trade - pd.Timedelta(days=3)
         vals = value_series(qty, prices_try)
         vals = vals[vals.index >= start]
+        port_vals, port_in = vals, inflows_by_day(flows, vals.index)
         inv = invested_series(flows, prices_try.index)
         inv = inv[inv.index >= start].reindex(vals.index)
         fig = go.Figure()
@@ -635,10 +708,13 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
         c2.plotly_chart(fig, width="stretch")
     else:
         hist = value_history(positions, prices_try)
+        port_vals, port_in = value_history(positions, prices_try, days=365 * years), None
         line = px.line(hist.rename("Değer (TL)").to_frame(), y="Değer (TL)")
         line.update_layout(height=380, margin=dict(t=30, b=10, l=10, r=10), title="Bugünkü miktarlarla son 1 yıl",
                            yaxis_tickprefix="₺", xaxis_title=None, showlegend=False)
         c2.plotly_chart(line, width="stretch")
+
+    _comparison(port_vals, port_in, years)
 
     st.button("📊 Bu varlıkları Model analizi sayfasında kullan", on_click=_use_in_analysis, args=(positions,),
               help="Sembolleri analiz sayfasının kenar çubuğuna aktarır.")

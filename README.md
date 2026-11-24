@@ -47,6 +47,8 @@ Uygulamanın **Portföyüm** sayfasında varlıklarınızı girip takip edebilir
 - **Yeniden dengeleme:** Seçtiğiniz modele göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır; öneri hiçbir zaman eksi nakde düşürmez.
 - **Kayıt:** Giriş yaptıysanız pozisyonlar ve işlemler adlandırılarak, fon fiyatları da hesabınıza kaydedilir. Bunları yalnızca siz görürsünüz.
 
+**Karşılaştırma:** Portföyün zaman ağırlıklı getirisi (TWR) BIST100, dolar, gram altın ve enflasyonla (TÜFE, OECD) aynı grafikte karşılaştırılır. Dönem olarak 1 ay–tümü seçilebilir. Tabloda toplam, yıllık ve reel getiri yer alır. Reel getiri yalnızca TÜFE verisinin kapsadığı dönemlerde hesaplanır.
+
 **Nakit takibi:** İşlemlere para yatırma/çekme girerseniz nakit bakiyesi işlemlerden hesaplanır. Alımlar nakitten düşer; satışlar ve temettüler nakde eklenir. XIRR bu durumda yalnızca dış para akışlarıyla hesaplanır. Girmezseniz temettüler alınan gelir olarak getiriye eklenir.
 
 **İşlem dosyası içe aktarma:** *İşlemler → Dosyadan içe aktar* bölümünden şablonu indirebilir ya da aracı kurum ekstrenizi yükleyebilirsiniz. Tarih, işlem yönü (Al/Alış/Buy, Sat/Satış/Sell), sembol, adet ve fiyat sütunları farklı adlarla da tanınır. Aynı işlem iki kez eklenmez. İşlemleri CSV olarak dışa da aktarabilirsiniz.
