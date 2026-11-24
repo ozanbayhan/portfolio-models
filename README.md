@@ -39,13 +39,15 @@ Uygulamanın **Portföyüm** sayfasında varlıklarınızı girip takip edebilir
 | Sekme | Ne girersiniz | Ne elde edersiniz |
 |---|---|---|
 | 📋 **Pozisyonlar** | Şu an elinizde olanlar: tür, sembol, miktar, isteğe bağlı ortalama maliyet | Hızlı başlangıç |
-| 🧾 **İşlemler** | Her alım/satım: tarih, Al/Sat, sembol, adet, birim fiyat; elle ya da **CSV/Excel'den toplu** (aracı kurum ekstresi veya şablon) | Miktar ve ortalama maliyet otomatik hesaplanır. Gerçekleşen K/Z, yıllık getiri (XIRR) ve o tarihlerde gerçekten elde olanlarla değer grafiği |
+| 🧾 **İşlemler** | Alım/satım, **temettü**, **para yatırma/çekme**: tarih, sembol, adet, fiyat ya da tutar; elle ya da **CSV/Excel'den toplu** (aracı kurum ekstresi veya şablon) | Miktar ve ortalama maliyet otomatik hesaplanır. Gerçekleşen K/Z, yıllık getiri (XIRR) ve o tarihlerde gerçekten elde olanlarla değer grafiği |
 | 📈 **Fon fiyatları** | TEFAS'tan indirilen CSV/Excel dosyası ya da tarih–fiyat tablosu (elle) | Fonlar değer grafiğine, günlük değişime ve yeniden dengelemeye katılır |
 
 - **Desteklenen varlıklar:** BIST hisseleri, TEFAS fonları, Yahoo Finance'teki her sembol (ABD hisseleri, ETF'ler, kripto…), gram altın ve nakit (TRY, USD, EUR…).
 - **TL değerleme:** Döviz cinsinden varlıklar güncel kurla, işlemler ise işlem günündeki kurla TL'ye çevrilir.
 - **Yeniden dengeleme:** Seçtiğiniz modele göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır; öneri hiçbir zaman eksi nakde düşürmez.
 - **Kayıt:** Giriş yaptıysanız pozisyonlar ve işlemler adlandırılarak, fon fiyatları da hesabınıza kaydedilir. Bunları yalnızca siz görürsünüz.
+
+**Nakit takibi:** İşlemlere para yatırma/çekme girerseniz nakit bakiyesi işlemlerden hesaplanır. Alımlar nakitten düşer; satışlar ve temettüler nakde eklenir. XIRR bu durumda yalnızca dış para akışlarıyla hesaplanır. Girmezseniz temettüler alınan gelir olarak getiriye eklenir.
 
 **İşlem dosyası içe aktarma:** *İşlemler → Dosyadan içe aktar* bölümünden şablonu indirebilir ya da aracı kurum ekstrenizi yükleyebilirsiniz. Tarih, işlem yönü (Al/Alış/Buy, Sat/Satış/Sell), sembol, adet ve fiyat sütunları farklı adlarla da tanınır. Aynı işlem iki kez eklenmez. İşlemleri CSV olarak dışa da aktarabilirsiniz.
 

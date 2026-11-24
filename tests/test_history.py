@@ -201,3 +201,49 @@ def test_fund_prices_store(tmp_path):
     save_portfolio(eng, "ali@example.com", "TTE", {"2026-11-01": 2.5}, kind="fund_prices")
     assert load_portfolio(eng, "ali@example.com", "TTE", kind="fund_prices") == {"2026-11-01": 2.5}
     assert list_portfolios(eng, "ayse@example.com", kind="fund_prices") == []
+
+
+def test_dividends_and_cash_tracking():
+    from portfolio_models.holdings import (
+        KIND_CASH, cash_balances, cash_tracking, dividends_tl, trade_cashflows as tcf,
+    )
+    rows = [
+        {"Tarih": date(2026, 1, 2), "İşlem": "Para yatır", "Tür": KIND_CASH, "Sembol": "TRY", "Tutar": 50000},
+        {"Tarih": date(2026, 1, 5), "İşlem": "Al", "Tür": KIND_BIST, "Sembol": "THYAO", "Adet": 100, "Fiyat": 200},
+        {"Tarih": date(2026, 1, 6), "İşlem": "Al", "Tür": KIND_YAHOO, "Sembol": "AAPL", "Adet": 2, "Fiyat": 100},
+        {"Tarih": date(2026, 1, 8), "İşlem": "Temettü", "Tür": KIND_BIST, "Sembol": "THYAO", "Adet": 100,
+         "Fiyat": 2.5},  # adet × hisse başı temettü
+        {"Tarih": date(2026, 1, 9), "İşlem": "Temettü", "Tür": KIND_YAHOO, "Sembol": "AAPL", "Tutar": 1},
+        {"Tarih": date(2026, 1, 9), "İşlem": "Sat", "Tür": KIND_BIST, "Sembol": "THYAO", "Adet": 50, "Fiyat": 400},
+        {"Tarih": date(2026, 1, 12), "İşlem": "Para çek", "Tür": KIND_CASH, "Sembol": "TRY", "Tutar": 1000},
+        {"Tarih": date(2026, 1, 12), "İşlem": "Al", "Tür": KIND_CASH, "Sembol": "USD", "Adet": 1, "Fiyat": 1},
+    ]
+    trades, warns = parse_trades(rows)
+    assert len(warns) == 1 and "Nakit" in warns[0]  # nakit 'Al' kabul edilmez
+    assert cash_tracking(trades)
+    summ, _ = aggregate_trades(trades)
+    assert summ["THYAO"].dividends == pytest.approx(250) and summ["AAPL"].dividends == pytest.approx(1)
+    cur = {"AAPL": "USD", "USDTRY=X": "TRY", "THYAO.IS": "TRY"}
+    bal = cash_balances(trades, cur)
+    assert bal["Nakit TRY"] == pytest.approx(50000 - 20000 + 250 + 20000 - 1000)
+    assert bal["Nakit USD"] == pytest.approx(-200 + 1)  # dolar yatırılmadan alım: eksi bakiye
+    idx = pd.bdate_range("2026-01-02", "2026-01-12")
+    closes = pd.DataFrame({"THYAO.IS": 200.0, "AAPL": 100.0, "USDTRY=X": 40.0}, index=idx)
+    flows = tcf(trades, closes, cur)
+    assert list(flows["amount"]) == [-50000, 1000]  # yalnızca dış akışlar
+    assert dividends_tl(trades, closes, cur) == pytest.approx(250 + 40)
+    merged = merge_rows_with_trades([{"Tür": KIND_CASH, "Sembol": "TRY", "Miktar": 500}], summ, bal)
+    m = {r["Sembol"]: r["Miktar"] for r in merged}
+    assert m["TRY"] == pytest.approx(500 + bal["Nakit TRY"])
+    assert "USD" not in m  # eksi bakiye pozisyona eklenmez
+
+
+def test_without_cash_tracking_dividend_is_inflow():
+    from portfolio_models.holdings import trade_cashflows as tcf
+
+    trades, _ = parse_trades([
+        {"Tarih": date(2026, 1, 5), "İşlem": "Al", "Tür": KIND_BIST, "Sembol": "A", "Adet": 10, "Fiyat": 10},
+        {"Tarih": date(2026, 1, 6), "İşlem": "Temettü", "Tür": KIND_BIST, "Sembol": "A", "Tutar": 5},
+    ])
+    flows = tcf(trades, pd.DataFrame(), {})
+    assert list(flows["amount"]) == [-100, 5]

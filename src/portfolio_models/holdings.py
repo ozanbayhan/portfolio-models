@@ -30,8 +30,10 @@ KINDS = [KIND_BIST, KIND_FUND, KIND_YAHOO, KIND_GOLD, KIND_CASH]
 TXN_KINDS = [KIND_BIST, KIND_FUND, KIND_YAHOO, KIND_GOLD]
 
 COLUMNS = ["Tür", "Sembol", "Miktar", "Ort. maliyet", "Güncel fiyat"]
-TXN_COLUMNS = ["Tarih", "İşlem", "Tür", "Sembol", "Adet", "Fiyat"]
-SIDE_BUY, SIDE_SELL = "Al", "Sat"
+TXN_COLUMNS = ["Tarih", "İşlem", "Tür", "Sembol", "Adet", "Fiyat", "Tutar"]
+SIDE_BUY, SIDE_SELL, SIDE_DIV, SIDE_DEP, SIDE_WD = "Al", "Sat", "Temettü", "Para yatır", "Para çek"
+SIDES = [SIDE_BUY, SIDE_SELL, SIDE_DIV, SIDE_DEP, SIDE_WD]
+CASH_SIDES = {SIDE_DEP, SIDE_WD}
 
 
 @dataclass(frozen=True)
@@ -158,12 +160,26 @@ def parse_positions(rows: list[dict], funds_with_history: set[str] | frozenset =
 @dataclass(frozen=True)
 class Trade:
     date: pd.Timestamp
-    side: str  # Al / Sat
+    side: str  # Al / Sat / Temettü / Para yatır / Para çek
     kind: str
     label: str
     symbol: str
-    qty: float
-    price: float  # birim fiyat, varlığın kendi para biriminde (gram altın: TL/gram)
+    qty: float  # Al/Sat: adet; diğerlerinde 0
+    price: float  # Al/Sat: birim fiyat (varlığın para birimi; gram altın TL/gram)
+    amount: float = 0.0  # Temettü / Para yatır / Para çek: toplam tutar (varlığın ya da nakdin para birimi)
+
+    @property
+    def is_trade(self) -> bool:
+        return self.side in (SIDE_BUY, SIDE_SELL)
+
+    @property
+    def gross(self) -> float:
+        """İşlemin toplam tutarı, kendi para biriminde."""
+        return self.qty * self.price if self.is_trade else self.amount
+
+
+def _blank(v) -> bool:
+    return v is None or v == "" or (isinstance(v, float) and math.isnan(v))
 
 
 def parse_trades(rows: list[dict], today: date | None = None) -> tuple[list[Trade], list[str]]:
@@ -173,8 +189,7 @@ def parse_trades(rows: list[dict], today: date | None = None) -> tuple[list[Trad
     for i, row in enumerate(rows, start=1):
         d, side, kind = row.get("Tarih"), row.get("İşlem"), row.get("Tür")
         symbol = str(row.get("Sembol") or "").strip().upper()
-        if all(row.get(c) in (None, "") or (isinstance(row.get(c), float) and math.isnan(row.get(c)))
-               for c in TXN_COLUMNS):
+        if all(_blank(row.get(c)) for c in TXN_COLUMNS):
             continue
         try:
             ts = pd.Timestamp(d).normalize()
@@ -186,22 +201,50 @@ def parse_trades(rows: list[dict], today: date | None = None) -> tuple[list[Trad
         if ts.date() > today:
             warnings.append(f"İşlem {i}: ileri tarihli işlem atlandı.")
             continue
-        if side not in (SIDE_BUY, SIDE_SELL):
-            warnings.append(f"İşlem {i}: Al veya Sat seçin.")
+        if side not in SIDES:
+            warnings.append(f"İşlem {i}: işlem türünü seçin ({', '.join(SIDES)}).")
             continue
+        qty, price, total = (_float_or_none(row.get("Adet")), _float_or_none(row.get("Fiyat")),
+                             _float_or_none(row.get("Tutar")))
+
+        if side in CASH_SIDES:  # para yatırma / çekme: Tür = Nakit, Sembol = para birimi
+            cur = symbol if kind == KIND_CASH and symbol else ("TRY" if kind in (None, "", KIND_CASH) else None)
+            label = asset_label(KIND_CASH, cur) if cur else None
+            if label is None:
+                warnings.append(f"İşlem {i}: para yatırma/çekme için Tür 'Nakit', Sembol para birimi (TRY, USD…) olmalı.")
+                continue
+            amount = total or (qty * price if qty and price else None)
+            if amount is None:
+                warnings.append(f"İşlem {i}: tutarı 'Tutar' sütununa yazın.")
+                continue
+            trades.append(Trade(ts, side, KIND_CASH, label, label.split()[-1], 0.0, 0.0, amount))
+            continue
+
         if kind not in TXN_KINDS:
-            warnings.append(f"İşlem {i}: tür seçin.")
+            warnings.append(f"İşlem {i}: tür seçin." + (" Nakit yalnızca para yatırma/çekmede kullanılır."
+                                                         if kind == KIND_CASH else ""))
             continue
         label = asset_label(kind, symbol)
         if label is None:
             warnings.append(f"İşlem {i}: sembol boş.")
             continue
-        qty, price = _float_or_none(row.get("Adet")), _float_or_none(row.get("Fiyat"))
-        if qty is None or price is None:
-            warnings.append(f"İşlem {i}: adet ve fiyat sıfırdan büyük olmalı.")
+        if side == SIDE_DIV:
+            # Temettü: 'Tutar' (net toplam) ya da Adet × Fiyat (pay adedi × hisse başı net temettü)
+            amount = total or (qty * price if qty and price else None)
+            if amount is None:
+                warnings.append(f"İşlem {i}: temettü için 'Tutar' ya da adet ve hisse başı temettü girin.")
+                continue
+            trades.append(Trade(ts, side, kind, label, symbol, 0.0, 0.0, amount))
             continue
-        trades.append(Trade(ts, side, kind, label, symbol, qty, price))
-    trades.sort(key=lambda t: (t.date, t.side != SIDE_BUY))  # aynı gün önce alımlar
+        if qty is None or price is None:
+            if qty is not None and total:  # adet + toplam tutar verilmişse birim fiyatı çıkar
+                price = total / qty
+            else:
+                warnings.append(f"İşlem {i}: adet ve fiyat sıfırdan büyük olmalı.")
+                continue
+        trades.append(Trade(ts, side, kind, label, symbol, qty, price, qty * price))
+    order = {SIDE_DEP: 0, SIDE_BUY: 1, SIDE_DIV: 2, SIDE_SELL: 3, SIDE_WD: 4}
+    trades.sort(key=lambda t: (t.date, order[t.side]))  # aynı gün: önce para yatırma ve alımlar
     return trades, warnings
 
 
@@ -212,6 +255,7 @@ class TradeSummary:
     qty: float = 0.0
     cost_total: float = 0.0  # kalan pozisyonun toplam maliyeti (varlığın para birimi)
     realized: float = 0.0  # gerçekleşen K/Z (varlığın para birimi)
+    dividends: float = 0.0  # alınan temettü toplamı (varlığın para birimi)
     first_date: pd.Timestamp | None = None
 
     @property
@@ -220,12 +264,16 @@ class TradeSummary:
 
 
 def aggregate_trades(trades: list[Trade]) -> tuple[dict[str, TradeSummary], list[str]]:
-    """Ortalama maliyet yöntemiyle her varlığın kalan miktarı, maliyeti ve gerçekleşen K/Z'si."""
+    """Ortalama maliyet yöntemiyle her varlığın kalan miktarı, maliyeti, gerçekleşen K/Z'si ve temettüsü."""
     out: dict[str, TradeSummary] = {}
     warnings: list[str] = []
     for t in trades:
+        if t.side in CASH_SIDES:
+            continue
         s = out.setdefault(t.label, TradeSummary(t.kind, t.symbol, first_date=t.date))
-        if t.side == SIDE_BUY:
+        if t.side == SIDE_DIV:
+            s.dividends += t.amount
+        elif t.side == SIDE_BUY:
             s.qty += t.qty
             s.cost_total += t.qty * t.price
         else:
@@ -245,13 +293,55 @@ def aggregate_trades(trades: list[Trade]) -> tuple[dict[str, TradeSummary], list
     return out, warnings
 
 
-def merge_rows_with_trades(rows: list[dict], summary: dict[str, TradeSummary]) -> list[dict]:
-    """Pozisyon satırlarına işlemlerden gelen miktarları ekler (aynı varlık varsa toplar)."""
+def cash_tracking(trades: list[Trade]) -> bool:
+    """Para yatırma/çekme girildiyse nakit hesabı işlemlerden türetilir."""
+    return any(t.side in CASH_SIDES for t in trades)
+
+
+def trade_currency(t: Trade, currencies: dict[str, str]) -> tuple[str, float]:
+    """İşlem tutarının para birimi ve o birime çevirme çarpanı (GBp -> GBP için 0,01)."""
+    if t.kind == KIND_CASH:
+        return t.symbol, 1.0
+    if t.kind in (KIND_BIST, KIND_GOLD, KIND_FUND):
+        return "TRY", 1.0
+    cur = currencies.get(make_position(t.kind, t.symbol, 1).ticker, "USD")
+    return ("GBP", 0.01) if cur == "GBp" else (cur, 1.0)
+
+
+def cash_movements(trades: list[Trade], currencies: dict[str, str]) -> list[tuple[pd.Timestamp, str, float]]:
+    """Nakit hesabındaki değişimler: (tarih, 'Nakit XXX', tutar). Alım düşer; satış, temettü, yatırma ekler."""
+    out = []
+    for t in trades:
+        cur, f = trade_currency(t, currencies)
+        sign = {SIDE_BUY: -1, SIDE_SELL: 1, SIDE_DIV: 1, SIDE_DEP: 1, SIDE_WD: -1}[t.side]
+        out.append((t.date, f"Nakit {cur}", sign * t.gross * f))
+    return out
+
+
+def cash_balances(trades: list[Trade], currencies: dict[str, str]) -> dict[str, float]:
+    bal: dict[str, float] = {}
+    for _, label, delta in cash_movements(trades, currencies):
+        bal[label] = bal.get(label, 0.0) + delta
+    return bal
+
+
+def merge_rows_with_trades(rows: list[dict], summary: dict[str, TradeSummary],
+                           cash: dict[str, float] | None = None) -> list[dict]:
+    """Pozisyon satırlarına işlemlerden gelen miktarları (ve nakit takibi açıksa nakit bakiyelerini) ekler."""
     merged: list[dict] = []
     used: set[str] = set()
+    cash = dict(cash or {})
     for r in rows:
         r = dict(r)
         label = asset_label(r.get("Tür"), r.get("Sembol")) if r.get("Tür") else None
+        if label in cash and r.get("Tür") == KIND_CASH:
+            try:
+                manual = float(r.get("Miktar") or 0)
+            except (TypeError, ValueError):
+                manual = 0.0
+            r["Miktar"] = manual + max(cash.pop(label), 0.0)
+            merged.append(r)
+            continue
         s = summary.get(label) if label else None
         if s and s.kind == r.get("Tür") and s.qty > 0:
             used.add(label)
@@ -272,21 +362,27 @@ def merge_rows_with_trades(rows: list[dict], summary: dict[str, TradeSummary]) -
             continue
         merged.append({"Tür": s.kind, "Sembol": s.symbol, "Miktar": s.qty, "Ort. maliyet": s.avg_cost,
                        "Güncel fiyat": None})
+    for label, amount in cash.items():
+        if amount > 0.005:
+            merged.append({"Tür": KIND_CASH, "Sembol": label.split()[-1], "Miktar": amount, "Ort. maliyet": None,
+                           "Güncel fiyat": None})
     return merged
 
 
-def quantity_timeline(base: dict[str, float], trades: list[Trade], index: pd.DatetimeIndex) -> pd.DataFrame:
-    """Her gün elde tutulan miktar. `base`: tarihsiz pozisyon satırları (tüm dönemde elde)."""
-    labels = list(dict.fromkeys(list(base) + [t.label for t in trades]))
+def quantity_timeline(base: dict[str, float], trades: list[Trade], index: pd.DatetimeIndex,
+                      cash: list[tuple[pd.Timestamp, str, float]] | None = None) -> pd.DataFrame:
+    """Her gün elde tutulan miktar. `base`: tarihsiz pozisyon satırları (tüm dönemde elde).
+    `cash`: nakit takibi açıksa nakit hesabı hareketleri."""
+    moves = [(t.date, t.label, t.qty if t.side == SIDE_BUY else -t.qty) for t in trades if t.is_trade]
+    moves += list(cash or [])
+    labels = list(dict.fromkeys(list(base) + [m[1] for m in moves]))
     q = pd.DataFrame(0.0, index=index, columns=labels)
     for label, v in base.items():
         q[label] += v
-    for t in trades:
-        pos = index.searchsorted(t.date)  # işlem gününe ya da sonraki ilk fiyat gününe
-        if pos >= len(index):
-            continue
-        col = q.columns.get_loc(t.label)
-        q.iloc[pos:, col] += t.qty if t.side == SIDE_BUY else -t.qty
+    for when, label, delta in moves:
+        pos = index.searchsorted(when)  # işlem gününe ya da sonraki ilk fiyat gününe
+        if pos < len(index):
+            q.iloc[pos:, q.columns.get_loc(label)] += delta
     return q.clip(lower=0)
 
 
@@ -301,6 +397,17 @@ def value_series(qty: pd.DataFrame, try_prices: pd.DataFrame) -> pd.Series:
     return v[~missing & held.any(axis=1)]
 
 
+def _fx_at(cur: str, when: pd.Timestamp, closes: pd.DataFrame) -> float:
+    if cur == "TRY":
+        return 1.0
+    col = fx_ticker(cur)
+    if col not in closes or closes[col].dropna().empty:
+        return float("nan")
+    s = closes[col].dropna()
+    before = s[s.index <= when]
+    return float(before.iloc[-1]) if len(before) else float(s.iloc[0])
+
+
 def fx_factor_at(kind: str, ticker: str | None, when: pd.Timestamp, closes: pd.DataFrame,
                  currencies: dict[str, str]) -> float:
     """İşlem fiyatını (varlığın para birimi) TL'ye çeviren kur, işlem tarihindeki değeriyle."""
@@ -310,29 +417,39 @@ def fx_factor_at(kind: str, ticker: str | None, when: pd.Timestamp, closes: pd.D
     factor = 1.0
     if cur == "GBp":
         cur, factor = "GBP", 0.01
-    if cur == "TRY":
-        return factor
-    col = fx_ticker(cur)
-    if col not in closes or closes[col].dropna().empty:
-        return float("nan")
-    s = closes[col].dropna()
-    s = s[s.index <= when]
-    return float(s.iloc[-1]) * factor if len(s) else float(closes[col].dropna().iloc[0]) * factor
+    return _fx_at(cur, when, closes) * factor
 
 
 def trade_cashflows(trades: list[Trade], closes: pd.DataFrame, currencies: dict[str, str]) -> pd.DataFrame:
-    """İşlemlerin TL nakit akışları: alım negatif (para çıkışı), satım pozitif."""
+    """Portföyün dışarıyla TL nakit akışları (işlem günü kuruyla); para portföye girerse negatif.
+
+    Nakit takibi kapalıysa: alım negatif; satış ve temettü pozitif (para size döner).
+    Nakit takibi açıksa: yalnızca para yatırma (negatif) ve çekme (pozitif); alım-satım ve temettü
+    portföyün içinde kalır.
+    """
+    tracking = cash_tracking(trades)
     rows = []
     for t in trades:
-        ticker = make_position(t.kind, t.symbol, 1).ticker
-        fx = fx_factor_at(t.kind, ticker, t.date, closes, currencies)
-        amount = t.qty * t.price * fx
-        rows.append({"date": t.date, "label": t.label, "amount": -amount if t.side == SIDE_BUY else amount})
+        if tracking and t.side not in CASH_SIDES:
+            continue
+        cur, f = trade_currency(t, currencies)
+        tl = t.gross * f * _fx_at(cur, t.date, closes)
+        sign = {SIDE_BUY: -1, SIDE_DEP: -1, SIDE_SELL: 1, SIDE_DIV: 1, SIDE_WD: 1}[t.side]
+        rows.append({"date": t.date, "label": t.label, "amount": sign * tl})
     return pd.DataFrame(rows, columns=["date", "label", "amount"])
 
 
+def dividends_tl(trades: list[Trade], closes: pd.DataFrame, currencies: dict[str, str]) -> float:
+    total = 0.0
+    for t in trades:
+        if t.side == SIDE_DIV:
+            cur, f = trade_currency(t, currencies)
+            total += t.amount * f * _fx_at(cur, t.date, closes)
+    return total
+
+
 def invested_series(flows: pd.DataFrame, index: pd.DatetimeIndex) -> pd.Series:
-    """Kümülatif net yatırılan tutar (alımlar - satımlar), TL."""
+    """Kümülatif net yatırılan tutar (portföye giren - çıkan para), TL."""
     if flows.empty:
         return pd.Series(0.0, index=index)
     daily = (-flows.set_index("date")["amount"]).groupby(level=0).sum()

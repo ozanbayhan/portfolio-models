@@ -27,11 +27,14 @@ from portfolio_models.holdings import (
     KIND_GOLD,
     KIND_YAHOO,
     KINDS,
-    SIDE_BUY,
-    SIDE_SELL,
+    SIDES,
     TXN_COLUMNS,
     TXN_KINDS,
     aggregate_trades,
+    cash_balances,
+    cash_movements,
+    cash_tracking,
+    dividends_tl,
     asset_label,
     fetch_market_data,
     history_returns,
@@ -210,7 +213,9 @@ def _transactions_tab(summary) -> None:
     st.caption(
         "Her alım ve satımı tarihiyle girin; miktar ve ortalama maliyet bunlardan hesaplanır. **Fiyat** birim fiyattır "
         "ve varlığın kendi para birimindedir (BIST ve fonlar TL, gram altın TL/gram, AAPL $). Dövizli işlemler "
-        "işlem günündeki kurla TL'ye çevrilir."
+        "işlem günündeki kurla TL'ye çevrilir. **Temettü:** varlığı seçip net tutarı **Tutar**'a yazın. "
+        "**Para yatır / Para çek:** Tür *Nakit*, Sembol para birimi (TRY, USD…), tutar **Tutar**'a — girerseniz "
+        "nakit takibi açılır ve nakit bakiyesi işlemlerden hesaplanır."
     )
     show = ss.pop("txn_flash", None)
     if show:
@@ -254,11 +259,16 @@ def _transactions_tab(summary) -> None:
         num_rows="dynamic", width="stretch", hide_index=True,
         column_config={
             "Tarih": st.column_config.DateColumn(format="DD.MM.YYYY", max_value=date.today(), required=True),
-            "İşlem": st.column_config.SelectboxColumn(options=[SIDE_BUY, SIDE_SELL], required=True),
-            "Tür": st.column_config.SelectboxColumn(options=TXN_KINDS, required=True, width="medium"),
+            "İşlem": st.column_config.SelectboxColumn(options=SIDES, required=True),
+            "Tür": st.column_config.SelectboxColumn(options=TXN_KINDS + [KIND_CASH], width="medium"),
             "Sembol": st.column_config.TextColumn(),
-            "Adet": st.column_config.NumberColumn(min_value=0.0, format="%.6g", required=True),
-            "Fiyat": st.column_config.NumberColumn(min_value=0.0, format="%.6g", required=True),
+            "Adet": st.column_config.NumberColumn(min_value=0.0, format="%.6g"),
+            "Fiyat": st.column_config.NumberColumn(min_value=0.0, format="%.6g"),
+            "Tutar": st.column_config.NumberColumn(
+                min_value=0.0, format="%.2f",
+                help="Temettü, para yatırma ve çekmede toplam tutar. Temettüde bunun yerine Adet × hisse başı "
+                     "temettü de girebilirsiniz.",
+            ),
         },
         key=f"txn_editor_{ss.hold_version}",
     )
@@ -266,13 +276,14 @@ def _transactions_tab(summary) -> None:
     if summary:
         rows = [
             {"Varlık": k, "Kalan adet": s.qty, "Ort. maliyet": s.avg_cost, "Gerçekleşen K/Z": s.realized,
-             "İlk işlem": s.first_date.date() if s.first_date is not None else None}
+             "Temettü": s.dividends, "İlk işlem": s.first_date.date() if s.first_date is not None else None}
             for k, s in summary.items()
         ]
         st.caption("İşlemlerden hesaplanan özet (tutarlar varlığın kendi para biriminde):")
         st.dataframe(
             pd.DataFrame(rows).style.format(
-                {"Kalan adet": _num, "Ort. maliyet": "{:,.4g}", "Gerçekleşen K/Z": "{:+,.2f}"}, na_rep=""
+                {"Kalan adet": _num, "Ort. maliyet": "{:,.4g}", "Gerçekleşen K/Z": "{:+,.2f}", "Temettü": "{:,.2f}"},
+                na_rep=""
             ),
             hide_index=True, width="stretch",
         )
@@ -453,44 +464,70 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     real_hist = {c: history_series(h) for c, h in ss.fund_hist.items() if h}
     fund_pricing = dict(real_hist)
     for t in trades:  # işlem fiyatları da fon için fiyat gözlemi sayılır (geçmişte olmayan tarihler)
-        if t.kind == KIND_FUND:
+        if t.kind == KIND_FUND and t.is_trade:
             s = fund_pricing.get(t.label, pd.Series(dtype=float))
             if t.date not in s.index:
                 s = pd.concat([s, pd.Series({t.date: t.price})]).sort_index()
             fund_pricing[t.label] = s
-    merged_rows = merge_rows_with_trades(ss.hold_current, summary)
-    positions, p_warn = parse_positions(merged_rows, funds_with_history=set(real_hist),
-                                        funds_with_price=set(fund_pricing))
-    base_positions, _ = parse_positions(ss.hold_current, funds_with_history=set(real_hist),
-                                        funds_with_price=set(fund_pricing))
+    tracking = cash_tracking(trades)
+    fund_sets = dict(funds_with_history=set(real_hist), funds_with_price=set(fund_pricing))
+    base_positions, _ = parse_positions(ss.hold_current, **fund_sets)
     base_qty = {p.label: p.quantity for p in base_positions}
-
-    for w in t_warn + a_warn + p_warn:
-        st.warning(w)
+    # 1) Nakit hariç pozisyonlar: piyasa verisini (ve para birimlerini) almak için
+    positions, p_warn = parse_positions(merge_rows_with_trades(ss.hold_current, summary), **fund_sets)
     if not positions and not trades:
+        for w in t_warn + a_warn + p_warn:
+            st.warning(w)
         st.info("Pozisyonlar veya İşlemler sekmesine en az bir varlık ekleyin.")
         return
 
-    # Tamamen satılmış varlıklar da geçmiş grafiği için fiyatlanır
     held = {p.label for p in positions}
     sold = [make_position(s.kind, s.symbol, 0.0, has_history=s.symbol.upper() in real_hist)
             for lbl, s in summary.items() if lbl not in held]
-    pricing_positions = positions + sold
+    cash_curs = {t.symbol for t in trades if t.kind == KIND_CASH}
     first_trade = min((t.date for t in trades), default=None)
     years = 3
     if first_trade is not None:
         years = max(3, math.ceil((pd.Timestamp(date.today()) - first_trade).days / 365) + 1)
-    def _symbol(p):  # make_position ile yeniden oluşturulabilecek sembol
-        return p.cash_currency if p.is_cash else (p.ticker if p.kind == KIND_YAHOO else ("" if p.kind == KIND_GOLD else p.label))
 
-    assets = tuple(sorted({(p.kind, _symbol(p)) for p in pricing_positions
-                           if p.kind != KIND_FUND and not (p.is_cash and p.cash_currency == "TRY")}))
+    def _symbol(p):  # make_position ile yeniden oluşturulabilecek sembol
+        if p.is_cash:
+            return p.cash_currency
+        return p.ticker if p.kind == KIND_YAHOO else ("" if p.kind == KIND_GOLD else p.label)
+
+    assets = {(p.kind, _symbol(p)) for p in positions + sold
+              if p.kind != KIND_FUND and not (p.is_cash and p.cash_currency == "TRY")}
+    assets |= {(KIND_CASH, c) for c in cash_curs if c != "TRY"}
     try:
-        closes, currencies = cached_market(assets, years) if assets else (pd.DataFrame(), {})
+        closes, currencies = cached_market(tuple(sorted(assets)), years) if assets else (pd.DataFrame(), {})
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Fiyatlar alınamadı: {exc}")
+        return
+
+    # 2) Nakit takibi açıksa işlemlerden türeyen nakit bakiyeleri pozisyonlara eklenir
+    cash_moves: list = []
+    if tracking:
+        balances = cash_balances(trades, currencies)
+        bal_warn = []
+        for label, b in balances.items():
+            if b < -0.5:
+                bal_warn.append(f"{label} bakiyesi işlemlere göre eksiye düşüyor ({b:,.2f}). Eksik para yatırma "
+                              "işlemi olabilir; eksi bakiye sıfır kabul edildi.")
+        positions, p_warn = parse_positions(merge_rows_with_trades(ss.hold_current, summary, balances), **fund_sets)
+        p_warn += bal_warn
+        cash_moves = cash_movements(trades, currencies)
+        held = {p.label for p in positions}
+    for w in t_warn + a_warn + p_warn:
+        st.warning(w)
+
+    cash_zero = [make_position(KIND_CASH, lbl.split()[-1], 0.0) for lbl in {m[1] for m in cash_moves}
+                 if lbl not in held]
+    pricing_positions = positions + sold + cash_zero
+    try:
         prices_try = try_price_history(pricing_positions, closes, currencies, fund_pricing)
         table, missing = valuation(positions, closes, currencies, prices_try, fund_pricing)
     except Exception as exc:  # noqa: BLE001
-        st.error(f"Fiyatlar alınamadı: {exc}")
+        st.error(f"Fiyatlar hesaplanamadı: {exc}")
         return
     if missing:
         st.warning(f"Fiyat bulunamadı, hesaba katılmadı: {', '.join(missing)}. Sembolü kontrol edin.")
@@ -525,20 +562,30 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
                 local = closes[p.ticker].dropna()
                 fx = float(prices_try[lbl].dropna().iloc[-1] / local.iloc[-1]) if len(local) else 1.0
             realized_tl += s.realized * fx
-        # XIRR: yalnızca tamamen işlemlerle girilmiş varlıklar (tarihsiz pozisyon satırları hariç)
-        trade_only = [lbl for lbl in summary if lbl not in base_qty]
-        f = flows[flows["label"].isin(trade_only)]
-        final = float(table[table["Varlık"].isin(trade_only)]["Değer (TL)"].sum()) if not table.empty else 0.0
-        span = (pd.Timestamp(date.today()) - f["date"].min()).days if not f.empty else 0
-        rate = xirr(list(zip(f["date"], f["amount"])) + [(pd.Timestamp(date.today()), final)]) if span >= 90 else None
+        div_tl = dividends_tl(trades, closes, currencies)
+        # XIRR: işlemlerden gelen kısmın bugünkü değeri (tarihsiz pozisyon satırları düşülür) + nakit akışları
+        last_px = prices_try.ffill().iloc[-1] if not prices_try.empty else pd.Series(dtype=float)
+        base_value = sum(q * float(last_px.get(lbl, 0.0)) for lbl, q in base_qty.items())
+        final = max(total - base_value, 0.0)
+        span = (pd.Timestamp(date.today()) - flows["date"].min()).days if not flows.empty else 0
+        rate = (xirr(list(zip(flows["date"], flows["amount"])) + [(pd.Timestamp(date.today()), final)])
+                if span >= 90 else None)
         m4.metric(
-            "Yıllık getiri (XIRR)" if rate is not None else "Gerçekleşen K/Z",
-            f"{rate:+.1%}" if rate is not None else _fmt_tl(realized_tl),
-            f"Gerçekleşen: {_fmt_tl(realized_tl)}" if rate is not None else None,
-            delta_color="off",
-            help="XIRR: işlem tarihleri ve tutarlarına göre yıllıklandırılmış getiri (en az 3 aylık işlem geçmişi "
-                 "gerekir; tarihsiz pozisyon satırları hariç). Gerçekleşen K/Z: satışlardan elde edilen kâr/zarar.",
+            "Yıllık getiri (XIRR)", f"{rate:+.1%}" if rate is not None else "—",
+            help="İşlem tarihleri ve tutarlarına göre yıllıklandırılmış getiri; en az 3 aylık işlem geçmişi gerekir. "
+                 + ("Nakit takibi açık: yalnızca para yatırma/çekme dış akış sayılır."
+                    if tracking else "Alımlar para girişi, satışlar ve temettüler para çıkışı sayılır.")
+                 + (" Tarihsiz pozisyon satırları hesaba katılmaz." if base_qty else ""),
         )
+        n1, n2, n3, n4 = st.columns(4)
+        n1.metric("Gerçekleşen K/Z", _fmt_tl(realized_tl), help="Satışlardan elde edilen kâr/zarar (bugünkü kurla).")
+        n2.metric("Alınan temettü", _fmt_tl(div_tl), help="Temettü tarihindeki kurla TL.")
+        net_in = float(-flows["amount"].sum()) if not flows.empty else 0.0
+        n3.metric("Net yatırılan", _fmt_tl(net_in),
+                  help="Para yatırma − çekme" if tracking else "Alımlar − satımlar − temettüler")
+        n4.metric("Nakit takibi", "Açık" if tracking else "Kapalı",
+                  help="İşlemlere 'Para yatır' / 'Para çek' eklediğinizde açılır: alımlar nakitten düşer, satış ve "
+                       "temettüler nakde eklenir.")
 
     if table.empty:
         return
@@ -570,7 +617,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     c1.plotly_chart(pie, width="stretch")
 
     if trades:
-        qty = quantity_timeline(base_qty, trades, prices_try.index)
+        qty = quantity_timeline(base_qty, trades, prices_try.index, cash=cash_moves)
         start = first_trade - pd.Timedelta(days=3)
         vals = value_series(qty, prices_try)
         vals = vals[vals.index >= start]
@@ -578,7 +625,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
         inv = inv[inv.index >= start].reindex(vals.index)
         fig = go.Figure()
         fig.add_scatter(x=vals.index, y=vals.values, name="Portföy değeri", mode="lines")
-        fig.add_scatter(x=inv.index, y=inv.values, name="Net yatırılan (işlemler)", mode="lines",
+        fig.add_scatter(x=inv.index, y=inv.values, name="Net yatırılan", mode="lines",
                         line=dict(dash="dot"))
         title = "Gerçek elde tutulan miktarlarla değer"
         if base_qty:

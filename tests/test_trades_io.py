@@ -7,12 +7,12 @@ from portfolio_models.trades_io import export_csv, merge_trades, parse_trades_fi
 
 def test_template_roundtrip():
     rows, warns = parse_trades_file(template_csv(), "sablon.csv")
-    assert warns == [] and len(rows) == 5
+    assert warns == [] and len(rows) == 7
     assert rows[0] == {"Tarih": "2025-01-15", "İşlem": "Al", "Tür": KIND_BIST, "Sembol": "THYAO",
                        "Adet": 100.0, "Fiyat": 290.5}
     assert rows[3]["Tür"] == KIND_GOLD and rows[3]["Sembol"] == ""
     trades, tw = parse_trades(rows)
-    assert tw == [] and len(trades) == 5
+    assert tw == [] and len(trades) == 7
     # dışa aktar -> tekrar içe aktar aynı sonucu verir
     again, _ = parse_trades_file(export_csv(rows), "export.csv")
     assert again == rows
@@ -53,4 +53,19 @@ def test_missing_columns_message():
 def test_merge_skips_duplicates():
     rows, _ = parse_trades_file(template_csv(), "s.csv")
     merged, skipped = merge_trades(rows[:3], rows)
-    assert len(merged) == 5 and skipped == 3
+    assert len(merged) == 7 and skipped == 3
+
+
+def test_statement_with_dividend_and_cash():
+    csv = (
+        "Tarih;İşlem;Sembol;Adet;Fiyat;Tutar\n"
+        "02.01.2026;Para Yatırma;;;;50.000,00\n"
+        "05.01.2026;Alış;THYAO;100;300;30.000,00\n"
+        "15.05.2026;Temettü;THYAO;;;1.250,50\n"
+        "01.06.2026;Para Çekme;;;;-5.000,00\n"
+    ).encode("utf-8")
+    rows, warns = parse_trades_file(csv, "x.csv")
+    assert warns == []
+    assert [(r["İşlem"], r["Tür"], r["Sembol"], r.get("Tutar")) for r in rows] == [
+        ("Para yatır", "Nakit", "TRY", 50000.0), ("Al", KIND_BIST, "THYAO", None),
+        ("Temettü", KIND_BIST, "THYAO", 1250.5), ("Para çek", "Nakit", "TRY", 5000.0)]
