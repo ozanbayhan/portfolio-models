@@ -11,9 +11,38 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+import importlib
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+
+
+def _reload_own_modules_if_changed() -> None:
+    """Streamlit Cloud git'ten yeni kod çekince yalnızca app.py'yi yeniden çalıştırır; içe aktarılan
+    kendi modüllerimizi (src/portfolio_models, holdings_page.py) yeniden yüklemez. Dosyalar
+    değiştiyse burada yeniden yükleyerek her güncellemenin elle yeniden başlatma gerekmeden yansımasını sağlarız."""
+    root = Path(__file__).parent
+    files = sorted((root / "src" / "portfolio_models").glob("*.py")) + [root / "holdings_page.py"]
+    stamp = tuple((f.name, f.stat().st_mtime_ns) for f in files if f.exists())
+    state = sys.modules.setdefault("_pm_reload_state", type(sys)("_pm_reload_state"))
+    previous = getattr(state, "stamp", None)
+    state.stamp = stamp
+    if previous == stamp:
+        return
+    # previous None: bu süreçte ilk çalıştırma. Modüller daha önce (eski sürüm app.py ile) yüklendiyse
+    # yenilenir; taze süreçte henüz yüklenmedikleri için aşağıdaki döngü hiçbir şey yapmaz.
+    # Bağımlılık sırasıyla: alt modüller önce, paket ve sayfa sonra
+    for name in ("portfolio_models.data", "portfolio_models.adapters", "portfolio_models.models",
+                 "portfolio_models.backtest", "portfolio_models.store", "portfolio_models.holdings",
+                 "portfolio_models", "holdings_page"):
+        if name in sys.modules:
+            importlib.reload(sys.modules[name])
+    if previous is not None:
+        st.cache_data.clear()
+
+
+_reload_own_modules_if_changed()
 from skfolio import RiskMeasure
 from skfolio.optimization import MeanRisk, ObjectiveFunction
 from skfolio.prior import BlackLitterman
