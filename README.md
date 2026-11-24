@@ -36,13 +36,13 @@ Tarayıcıda açılır. Sembolleri ve modelleri seçin; ağırlıkları, backtes
 
 Uygulamanın **Portföyüm** sayfasında varlıklarınızı miktarlarıyla girip takip edebilirsiniz:
 
-- **Desteklenen varlıklar:** BIST hisseleri, Yahoo Finance'teki her sembol (ABD hisseleri, ETF'ler, kripto…), gram altın ve nakit (TRY, USD, EUR…).
+- **Desteklenen varlıklar:** BIST hisseleri, TEFAS fonları, Yahoo Finance'teki her sembol (ABD hisseleri, ETF'ler, kripto…), gram altın ve nakit (TRY, USD, EUR…).
 - **TL değerleme:** Döviz cinsinden varlıklar güncel kurla TL'ye çevrilir. Günlük değişim ve dağılım gösterilir. Ortalama maliyet girilen varlıklar için kâr/zarar hesaplanır.
 - **Geçmiş:** Bugünkü miktarlarla son 1 yılın portföy değeri grafiği.
 - **Yeniden dengeleme:** Seçtiğiniz modele (HRP, risk paritesi, maks. Sharpe…) göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır.
 - **Kayıt:** Giriş yaptıysanız pozisyonlarınız adlandırılarak kaydedilir; yalnızca siz görürsünüz.
 
-TEFAS fonları Yahoo Finance'te olmadığı için şimdilik desteklenmiyor.
+**TEFAS fonları:** TEFAS otomatik veri erişimini engellediği için fonun güncel birim fiyatını siz girersiniz ([tefas.gov.tr → Fon Verileri](https://www.tefas.gov.tr/tr/fon-verileri)). Fonlar toplam değer, dağılım ve kâr/zarara dahil edilir. Fiyat geçmişi olmadığı için yeniden dengelemede oldukları gibi bırakılır.
 
 ### Giriş ve portföy kaydetme
 

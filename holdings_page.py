@@ -13,6 +13,7 @@ from portfolio_models.holdings import (
     COLUMNS,
     KIND_BIST,
     KIND_CASH,
+    KIND_FUND,
     KIND_GOLD,
     KIND_YAHOO,
     KINDS,
@@ -165,7 +166,8 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     # --- Pozisyon tablosu
     st.subheader("Pozisyonlar")
     st.caption(
-        "**BIST hissesi:** THYAO gibi kod · **Yahoo sembolü:** AAPL, BTC-USD, VOO… · **Gram altın:** sembol boş · "
+        "**BIST hissesi:** THYAO gibi kod · **TEFAS fonu:** fon kodu (TTE, AFT…) ve **Güncel fiyat** sütununa "
+        "birim fiyatı · **Yahoo sembolü:** AAPL, BTC-USD, VOO… · **Gram altın:** sembol boş · "
         "**Nakit:** sembol TRY, USD, EUR… · **Ort. maliyet** isteğe bağlı, varlığın kendi para biriminde (AAPL için $)."
     )
     c_new, _ = st.columns([1, 5])
@@ -179,7 +181,11 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
             "Tür": st.column_config.SelectboxColumn(options=KINDS, required=True, width="medium"),
             "Sembol": st.column_config.TextColumn(width="medium"),
             "Miktar": st.column_config.NumberColumn(min_value=0.0, format="%.4g", required=True),
-            "Ort. maliyet": st.column_config.NumberColumn(min_value=0.0, format="%.4g"),
+            "Ort. maliyet": st.column_config.NumberColumn(min_value=0.0, format="%.6g"),
+            "Güncel fiyat": st.column_config.NumberColumn(
+                min_value=0.0, format="%.6g",
+                help="Yalnızca TEFAS fonları için: fonun güncel birim fiyatı (TL). tefas.gov.tr → Fon Verileri.",
+            ),
         },
         key=f"hold_editor_{ss.hold_version}",
     )
@@ -199,6 +205,13 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     except Exception as exc:  # noqa: BLE001
         st.error(f"Fiyatlar alınamadı: {exc}")
         return
+    funds = [p for p in positions if p.kind == KIND_FUND]
+    if funds:
+        st.caption(
+            "ℹ️ TEFAS fonlarının fiyatı otomatik alınamıyor; girdiğiniz **Güncel fiyat** kullanılır. "
+            "Fiyatı güncellemek için tablodaki değeri değiştirip **Kaydet**'e basın. "
+            "[TEFAS Fon Verileri](https://www.tefas.gov.tr/tr/fon-verileri)"
+        )
     if missing:
         st.warning(f"Fiyat bulunamadı, hesaba katılmadı: {', '.join(missing)}. Sembolü kontrol edin.")
     if table.empty:
@@ -231,6 +244,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
                 "Günlük %": "{:+.2%}",
                 "Ağırlık": "{:.1%}",
             },
+            na_rep="",
         ),
         hide_index=True,
         width="stretch",
@@ -264,7 +278,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     st.subheader("Yeniden dengeleme önerisi")
     returns = history_returns(prices_try, positions)
     if returns.shape[1] < 2:
-        st.info("Öneri için nakit dışında en az 2 varlık gerekir.")
+        st.info("Öneri için nakit ve TEFAS fonları dışında, fiyat geçmişi olan en az 2 varlık gerekir.")
         return
     if len(returns) < 120:
         st.info("Öneri için en az ~6 aylık fiyat geçmişi gerekir.")
@@ -281,6 +295,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     st.caption(
         f"Model, varlıkların son {len(returns) // 252 or 1} yıllık TL getirileriyle eğitilir. "
         "BIST hisseleri tam adete yuvarlanır."
+        + (" TEFAS fonlarının fiyat geçmişi olmadığı için olduğu gibi bırakılır." if funds else "")
     )
 
     errors: list = []

@@ -4,6 +4,7 @@ import pytest
 from portfolio_models.holdings import (
     KIND_BIST,
     KIND_CASH,
+    KIND_FUND,
     KIND_GOLD,
     KIND_YAHOO,
     TROY_OUNCE_GRAMS,
@@ -103,3 +104,39 @@ def test_holdings_store_isolated(tmp_path):
     assert list_portfolios(eng, "ali@example.com") == []  # ayar kayıtları ayrı tabloda
     assert delete_portfolio(eng, "ayse@example.com", "Ana", kind="holdings") is False
     assert delete_portfolio(eng, "ali@example.com", "Ana", kind="holdings") is True
+
+
+def test_tefas_fund_manual_price(market):
+    closes, cur = market
+    rows = ROWS + [
+        {"Tür": KIND_FUND, "Sembol": "tte", "Miktar": 1000, "Ort. maliyet": 2.0, "Güncel fiyat": 2.5},
+        {"Tür": KIND_FUND, "Sembol": "AFT", "Miktar": 10, "Güncel fiyat": None},
+    ]
+    pos, warns = parse_positions(rows)
+    assert any("AFT" in w for w in warns)  # fiyatsız fon uyarı verir
+    fund = [p for p in pos if p.kind == KIND_FUND]
+    assert [p.label for p in fund] == ["TTE"] and fund[0].is_fixed
+    prices = try_price_history(pos, closes, cur)
+    table, missing = valuation(pos, closes, cur, prices)
+    t = table.set_index("Varlık")
+    assert missing == []
+    assert t.loc["TTE", "Değer (TL)"] == pytest.approx(2500)
+    assert t.loc["TTE", "K/Z (TL)"] == pytest.approx(500)
+    assert t.loc["TTE", "K/Z %"] == pytest.approx(0.25)
+    # yeniden dengeleme: fon olduğu gibi kalır
+    targets = pd.Series({"THYAO": 0.5, "AAPL": 0.3, "Gram altın": 0.2})
+    out = rebalance(table, targets, prices.iloc[-1], include_cash=True)
+    assert "TTE" not in set(out["Varlık"])
+    fixed = t.loc["TTE", "Değer (TL)"]
+    assert out["Hedef (TL)"].sum() == pytest.approx(t["Değer (TL)"].sum() - fixed)
+
+
+def test_only_funds_and_try_cash():
+    pos, _ = parse_positions([
+        {"Tür": KIND_FUND, "Sembol": "TTE", "Miktar": 100, "Güncel fiyat": 3.0},
+        {"Tür": KIND_CASH, "Sembol": "TRY", "Miktar": 50},
+    ])
+    closes = pd.DataFrame()
+    prices = try_price_history(pos, closes, {})
+    table, missing = valuation(pos, closes, {}, prices)
+    assert missing == [] and table["Değer (TL)"].sum() == pytest.approx(350)

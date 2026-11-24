@@ -20,9 +20,12 @@ KIND_BIST = "BIST hissesi"
 KIND_YAHOO = "Yahoo sembolü"
 KIND_GOLD = "Gram altın"
 KIND_CASH = "Nakit"
-KINDS = [KIND_BIST, KIND_YAHOO, KIND_GOLD, KIND_CASH]
+KIND_FUND = "TEFAS fonu"
+KINDS = [KIND_BIST, KIND_FUND, KIND_YAHOO, KIND_GOLD, KIND_CASH]
+# Otomatik fiyat geçmişi olmayan, yeniden dengelemeye katılmayan türler
+FIXED_KINDS = {KIND_CASH, KIND_FUND}
 
-COLUMNS = ["Tür", "Sembol", "Miktar", "Ort. maliyet"]
+COLUMNS = ["Tür", "Sembol", "Miktar", "Ort. maliyet", "Güncel fiyat"]
 
 
 @dataclass(frozen=True)
@@ -33,10 +36,16 @@ class Position:
     quantity: float
     cost: float | None  # birim maliyet, varlığın kendi para biriminde
     cash_currency: str | None = None
+    manual_price: float | None = None  # TEFAS fonları: kullanıcının girdiği güncel birim fiyat (TL)
 
     @property
     def is_cash(self) -> bool:
         return self.kind == KIND_CASH
+
+    @property
+    def is_fixed(self) -> bool:
+        """Fiyat geçmişi olmayan (nakit, TEFAS fonu); yeniden dengelemeye katılmaz."""
+        return self.kind in FIXED_KINDS
 
 
 def fx_ticker(currency: str) -> str:
@@ -69,6 +78,28 @@ def parse_positions(rows: list[dict]) -> tuple[list[Position], list[str]]:
                 cost = None
         except (TypeError, ValueError):
             cost = None
+
+        if kind == KIND_FUND:
+            try:
+                manual = float(row.get("Güncel fiyat"))
+            except (TypeError, ValueError):
+                manual = float("nan")
+            if not symbol:
+                warnings.append(f"Satır {i}: TEFAS fon kodunu yazın (ör. TTE, AFT).")
+                continue
+            if not math.isfinite(manual) or manual <= 0:
+                warnings.append(
+                    f"Satır {i}: {symbol} için 'Güncel fiyat' sütununa fonun birim fiyatını (TL) yazın "
+                    "— tefas.gov.tr'den bakabilirsiniz."
+                )
+                continue
+            pos = Position(kind, symbol, None, qty, cost, manual_price=manual)
+            if pos.label in seen:
+                warnings.append(f"Satır {i}: {pos.label} birden fazla kez girilmiş; miktarları tek satırda toplayın.")
+                continue
+            seen.add(pos.label)
+            positions.append(pos)
+            continue
 
         if kind == KIND_BIST:
             if not symbol:
@@ -168,6 +199,8 @@ def try_price_history(
     positions: list[Position], closes: pd.DataFrame, currencies: dict[str, str]
 ) -> pd.DataFrame:
     """Her pozisyonun TL cinsinden birim fiyat geçmişi (sütun = pozisyon etiketi)."""
+    if closes.empty:  # yalnızca TL nakit / TEFAS fonu varsa piyasa verisi gerekmez
+        closes = pd.DataFrame(index=pd.DatetimeIndex([pd.Timestamp.today().normalize()]))
     out: dict[str, pd.Series] = {}
     for p in positions:
         if p.ticker:
@@ -177,6 +210,8 @@ def try_price_history(
         elif p.kind == KIND_GOLD:
             if GOLD_FUTURES in closes and "USDTRY=X" in closes:
                 out[p.label] = closes[GOLD_FUTURES] * closes["USDTRY=X"] / TROY_OUNCE_GRAMS
+        elif p.kind == KIND_FUND:
+            out[p.label] = pd.Series(p.manual_price, index=closes.index)
         elif p.is_cash:
             out[p.label] = _fx_series(closes, p.cash_currency) if p.cash_currency != "TRY" else pd.Series(
                 1.0, index=closes.index
@@ -211,6 +246,8 @@ def valuation(
         cur = cur or currencies.get(p.ticker, "USD")
         if p.is_cash:
             last_local, prev_local, cur = 1.0, 1.0, p.cash_currency
+        elif p.kind == KIND_FUND:
+            last_local, prev_local, cur = p.manual_price, float("nan"), "TRY"
         tl = try_prices[p.label].dropna()
         price_try = float(tl.iloc[-1])
         prev_try = float(tl.iloc[-2]) if len(tl) > 1 else float("nan")
@@ -230,7 +267,7 @@ def valuation(
                 "Son fiyat": last_local,
                 "Para birimi": cur,
                 "Değer (TL)": value,
-                "Günlük %": price_try / prev_try - 1 if prev_try else float("nan"),
+                "Günlük %": (price_try / prev_try - 1) if prev_try and p.kind != KIND_FUND else float("nan"),
                 "Maliyet (TL)": cost_value_try,
                 "K/Z (TL)": value - cost_value_try if cost_value_try is not None else None,
                 "K/Z %": pnl_pct,
@@ -268,9 +305,12 @@ def rebalance(
     """
     whole_units = whole_units or set()
     values = table.set_index("Varlık")["Değer (TL)"]
-    is_cash = table.set_index("Varlık")["Tür"].eq(KIND_CASH)
+    kinds = table.set_index("Varlık")["Tür"]
+    is_cash = kinds.eq(KIND_CASH)
+    is_fixed = kinds.isin(FIXED_KINDS)
     cash_total = values[is_cash].sum()
-    investable = values[~is_cash].sum() + (cash_total if include_cash else 0.0)
+    # TEFAS fonları olduğu gibi kalır; yalnızca modeldeki varlıklar (+ istenirse nakit) dağıtılır
+    investable = values[~is_fixed].sum() + (cash_total if include_cash else 0.0)
 
     rows = []
     for asset, w in target_weights.items():
@@ -302,6 +342,6 @@ def rebalance(
 
 def history_returns(try_prices: pd.DataFrame, positions: list[Position]) -> pd.DataFrame:
     """Yeniden dengeleme modelleri için riskli varlıkların TL getirileri."""
-    risky = [p.label for p in positions if not p.is_cash and p.label in try_prices]
+    risky = [p.label for p in positions if not p.is_fixed and p.label in try_prices]
     prices = try_prices[risky].dropna()
     return prices.pct_change().dropna().replace([np.inf, -np.inf], np.nan).dropna()
