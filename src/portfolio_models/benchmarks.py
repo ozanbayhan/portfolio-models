@@ -78,6 +78,56 @@ def fetch_cpi(start: str = "2015-01") -> pd.Series:
         return pd.Series(dtype=float)
 
 
+EVDS_URL = "https://evds3.tcmb.gov.tr/igmevdsms-dis/"  # evds2 2026da evds3e taşındı
+EVDS_CPI_SERIES = "TP.FG.J0"  # TÜFE genel endeks (2003=100), aylık
+
+
+def parse_evds_cpi(payload: dict, series: str = EVDS_CPI_SERIES) -> pd.Series:
+    """EVDS JSON yanıtı -> aylık TÜFE (index: ayın 15'i). Tarih biçimi '2025-1' ya da '01-2025' olabilir."""
+    col = series.replace(".", "_")
+    out = {}
+    for item in payload.get("items", []):
+        raw, val = str(item.get("Tarih", "")), item.get(col)
+        if val in (None, "", "null"):
+            continue
+        parts = raw.replace("/", "-").split("-")
+        try:
+            if len(parts[0]) == 4:
+                y, m = int(parts[0]), int(parts[1])
+            else:
+                m, y = int(parts[-2]), int(parts[-1])
+            out[pd.Timestamp(year=y, month=m, day=15)] = float(val)
+        except (ValueError, IndexError):
+            continue
+    return pd.Series(out, dtype=float).sort_index()
+
+
+def fetch_cpi_evds(api_key: str, start: str = "2015-01") -> pd.Series:
+    """TCMB EVDS'ten TÜFE. Anahtar HTTP başlığında gönderilir (URL'ye yazılmaz)."""
+    import json
+    import urllib.request
+
+    y, m = start.split("-")
+    today = date.today()
+    url = (f"{EVDS_URL}series={EVDS_CPI_SERIES}&startDate=01-{m}-{y}"
+           f"&endDate={today:%d-%m-%Y}&type=json&frequency=5")
+    req = urllib.request.Request(url, headers={"key": api_key, "User-Agent": "portfolio-models"})
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - sabit, güvenilir adres
+        return parse_evds_cpi(json.loads(resp.read().decode("utf-8")))
+
+
+def fetch_cpi_best(evds_key: str | None = None, start: str = "2015-01") -> tuple[pd.Series, str]:
+    """Önce EVDS (anahtar varsa), olmazsa OECD. Döner: (seri, kaynak adı)."""
+    if evds_key:
+        try:
+            s = fetch_cpi_evds(evds_key, start)
+            if len(s) >= 12:
+                return s, "TCMB EVDS"
+        except Exception:  # noqa: BLE001 - EVDS erişilemezse OECD'ye düş
+            pass
+    return fetch_cpi(start), "OECD"
+
+
 def daily_cpi(cpi: pd.Series, index: pd.DatetimeIndex) -> pd.Series:
     """Aylık TÜFE'yi günlük seriye çevirir (ay ortaları arasında doğrusal). Kapsam dışı günler NaN."""
     if cpi.empty:

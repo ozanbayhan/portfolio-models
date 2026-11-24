@@ -17,7 +17,7 @@ from portfolio_models.benchmarks import (
     benchmark_prices,
     compare,
     daily_cpi,
-    fetch_cpi,
+    fetch_cpi_best,
     inflows_by_day,
     summary as bench_summary,
     twr_index,
@@ -84,9 +84,16 @@ def cached_market(assets: tuple[tuple[str, str], ...], years: int):
     return fetch_market_data([make_position(k, s, 1.0) for k, s in assets], years=years)
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
-def cached_cpi() -> pd.Series:
-    return fetch_cpi("2015-01")
+def _evds_key() -> str | None:
+    try:
+        return st.secrets.get("evds_api_key") or None
+    except Exception:  # noqa: BLE001 - secrets dosyası yoksa
+        return None
+
+
+@st.cache_data(ttl=43200, show_spinner=False)
+def cached_cpi(has_key: bool) -> tuple[pd.Series, str]:
+    return fetch_cpi_best(_evds_key() if has_key else None, "2015-01")
 
 
 PERIODS = {"1 ay": 30, "3 ay": 91, "6 ay": 182, "1 yıl": 365, "Yılbaşından": "ytd", "Tümü": None}
@@ -114,7 +121,7 @@ def _comparison(port_vals: pd.Series, inflows: pd.Series | None, years: int) -> 
         st.warning(f"Benchmark verisi alınamadı: {exc}")
         return
     index = twr_index(port_vals, inflows)
-    cpi = cached_cpi()
+    cpi, cpi_source = cached_cpi(bool(_evds_key()))
     bench = benchmark_prices(bclose)
     norm = compare(index, bench, daily_cpi(cpi, bench.index.union(index.index)), start, end)
     if norm.empty:
@@ -140,7 +147,7 @@ def _comparison(port_vals: pd.Series, inflows: pd.Series | None, years: int) -> 
         )
     notes = ["Portföy getirisi zaman ağırlıklıdır (TWR): para yatırma/çekme ve alımların etkisi ayıklanır."]
     if not cpi.empty:
-        notes.append(f"TÜFE: OECD, {cpi.index.max():%m.%Y} ayına kadar; sonrası için reel getiri hesaplanmaz.")
+        notes.append(f"TÜFE: {cpi_source}, {cpi.index.max():%m.%Y} ayına kadar; sonrası için reel getiri hesaplanmaz.")
     else:
         notes.append("TÜFE verisi şu an alınamadı.")
     st.caption(" ".join(notes))

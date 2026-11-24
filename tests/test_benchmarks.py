@@ -6,6 +6,7 @@ from portfolio_models.benchmarks import (
     compare,
     daily_cpi,
     inflows_by_day,
+    parse_evds_cpi,
     parse_oecd_cpi,
     summary,
     twr_index,
@@ -66,3 +67,15 @@ def test_cpi_not_extended_beyond_coverage():
     assert norm["Enflasyon (TÜFE)"].last_valid_index() <= pd.Timestamp("2025-12-15")
     s = summary(norm).set_index("Seri")
     assert pd.isna(s.loc["BIST100", "Reel (TÜFE'ye göre)"])  # TÜFE dönemin sonunu kapsamıyor
+
+
+def test_parse_evds_formats():
+    payload = {"items": [
+        {"Tarih": "2025-11", "TP_FG_J0": "3100.5", "UNIXTIME": {"$numberLong": "1"}},
+        {"Tarih": "2025-12", "TP_FG_J0": "3150.25"},
+        {"Tarih": "01-2026", "TP_FG_J0": "3300"},
+        {"Tarih": "2026-2", "TP_FG_J0": None},  # henüz yayımlanmadı
+    ]}
+    s = parse_evds_cpi(payload)
+    assert list(s.index.strftime("%Y-%m-%d")) == ["2025-11-15", "2025-12-15", "2026-01-15"]
+    assert s.iloc[-1] == 3300.0
