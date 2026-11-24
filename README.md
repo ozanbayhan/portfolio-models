@@ -20,7 +20,15 @@ cd portfolio-models
 uv sync
 ```
 
-## Kullanım
+## Web arayüzü
+
+```bash
+uv run streamlit run app.py
+```
+
+Tarayıcıda açılır. Sembolleri ve modelleri seçin; ağırlıkları, backtest sonuçlarını, Black-Litterman görüşlerini ve korelasyonları sekmelerde görün.
+
+## Komut satırı
 
 ```bash
 # Tüm modelleri listele

@@ -12,6 +12,7 @@ dependencies = [
     "pyportfolioopt>=1.6.0",
     "riskfolio-lib>=7.4.1",
     "skfolio>=1.14.6",
+    "streamlit>=1.67.0",
     "yfinance>=1.8.0",
 ]
 

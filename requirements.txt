@@ -1,0 +1,2 @@
+# Streamlit Community Cloud bu dosyayla kurar: projeyi pyproject.toml bağımlılıklarıyla yükler.
+.
