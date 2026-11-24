@@ -1,0 +1,16 @@
+# Kütüphanelerin yeni sürümleri çıktığında otomatik Pull Request açar.
+# CI testleri geçerse PR'ı birleştirmeniz yeterli.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      portfolio-libs:
+        patterns: ["skfolio", "riskfolio-lib", "pyportfolioopt", "cvxpy*", "scikit-learn", "scipy", "numpy", "pandas"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

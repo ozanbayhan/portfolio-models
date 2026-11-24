@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # Her pazartesi 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Testler (kilitli sürümler)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest -q -p no:warnings
+
+  latest:
+    name: Testler (en yeni sürümler)
+    # Her hafta kütüphanelerin en son sürümleriyle dener;
+    # bir güncelleme bir modeli bozarsa burada kırmızı görürsünüz.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv lock --upgrade && uv sync
+      - run: uv run pytest -q -p no:warnings

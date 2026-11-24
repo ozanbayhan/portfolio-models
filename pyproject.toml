@@ -1,0 +1,28 @@
+[project]
+name = "portfolio-models"
+version = "0.1.0"
+description = "Tüm portföy modelleri tek çatı altında: skfolio, Riskfolio-Lib, PyPortfolioOpt"
+authors = [
+    { name = "Ozan Bayhan", email = "152163098+ozanbayhan@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "pandas>=3.1.1",
+    "pyportfolioopt>=1.6.0",
+    "riskfolio-lib>=7.4.1",
+    "skfolio>=1.14.6",
+    "yfinance>=1.8.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[project.scripts]
+portfolio-models = "portfolio_models.cli:main"
