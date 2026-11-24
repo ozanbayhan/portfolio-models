@@ -10,3 +10,4 @@ results/
 # Yerel kayıt veritabanı ve Streamlit gizli ayarları
 portfolios.db
 .streamlit/secrets.toml
+.streamlit/secrets.cloud.toml
