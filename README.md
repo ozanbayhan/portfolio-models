@@ -22,6 +22,10 @@ uv sync
 
 ## Web arayüzü
 
+**Canlı:** https://portfolio-models.streamlit.app — her `main` güncellemesinde otomatik yenilenir.
+
+Yerelde:
+
 ```bash
 uv run streamlit run app.py
 ```

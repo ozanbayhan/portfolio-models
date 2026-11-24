@@ -164,7 +164,7 @@ with tab_bt:
             fmt = {c: "{:.1%}" for c in PCT_COLS if c in table}
             fmt |= {c: "{:.2f}" for c in ("Sharpe", "Sortino") if c in table}
             st.dataframe(
-                table.style.format(fmt).highlight_max(subset=["Sharpe"], color="#c6efce"),
+                table.style.format(fmt).highlight_max(subset=["Sharpe"], props="background-color:#c6efce;color:#111;font-weight:600"),
                 width="stretch",
             )
             st.plotly_chart(population.plot_cumulative_returns(), width="stretch")
