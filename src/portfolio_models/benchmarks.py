@@ -79,7 +79,7 @@ def fetch_cpi(start: str = "2015-01") -> pd.Series:
 
 
 EVDS_URL = "https://evds3.tcmb.gov.tr/igmevdsms-dis/"  # evds2 2026da evds3e taşındı
-EVDS_CPI_SERIES = "TP.FG.J0"  # TÜFE genel endeks (2003=100), aylık
+EVDS_CPI_SERIES = "TP.TUKFIY2025.GENEL"  # TÜFE genel endeks (2025=100), aylık; eski TP.FG.J0 Ocak 2026da arşivlendi
 
 
 def parse_evds_cpi(payload: dict, series: str = EVDS_CPI_SERIES) -> pd.Series:

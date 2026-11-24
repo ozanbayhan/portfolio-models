@@ -76,6 +76,6 @@ def test_parse_evds_formats():
         {"Tarih": "01-2026", "TP_FG_J0": "3300"},
         {"Tarih": "2026-2", "TP_FG_J0": None},  # henüz yayımlanmadı
     ]}
-    s = parse_evds_cpi(payload)
+    s = parse_evds_cpi(payload, "TP.FG.J0")
     assert list(s.index.strftime("%Y-%m-%d")) == ["2025-11-15", "2025-12-15", "2026-01-15"]
     assert s.iloc[-1] == 3300.0
