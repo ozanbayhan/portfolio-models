@@ -63,7 +63,18 @@ fund_prices = Table(
     UniqueConstraint("user_email", "name", name="uq_fund_prices_user_name"),
 )
 
-TABLES = {"portfolio": portfolios, "holdings": holdings, "fund_prices": fund_prices}
+settings = Table(
+    "user_settings",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("user_email", String(320), nullable=False, index=True),
+    Column("name", String(120), nullable=False),  # ayar adı
+    Column("config", Text, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("user_email", "name", name="uq_user_settings_user_name"),
+)
+
+TABLES = {"portfolio": portfolios, "holdings": holdings, "fund_prices": fund_prices, "settings": settings}
 MAX_PORTFOLIOS_PER_USER = 50
 
 

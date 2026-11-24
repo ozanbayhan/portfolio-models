@@ -36,6 +36,7 @@ def _reload_own_modules_if_changed() -> None:
     for name in ("portfolio_models.data", "portfolio_models.adapters", "portfolio_models.models",
                  "portfolio_models.backtest", "portfolio_models.store", "portfolio_models.fund_prices",
                  "portfolio_models.holdings", "portfolio_models.trades_io", "portfolio_models.benchmarks",
+                 "portfolio_models.report",
                  "portfolio_models", "holdings_page"):
         if name in sys.modules:
             importlib.reload(sys.modules[name])

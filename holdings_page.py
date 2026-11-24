@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio_models import fit_weights, store
+from portfolio_models.report import set_weekly, weekly_enabled
 from portfolio_models.benchmarks import (
     BENCHMARK_TICKERS,
     benchmark_prices,
@@ -513,6 +514,21 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
                       help="Pozisyonları ve işlemleri kaydeder. Fon fiyatları ayrıca, kendi sekmesinde kaydedilir.")
             c5.button("Sil", on_click=_on_delete, args=(engine, email), width="stretch",
                       disabled=not ss.get("hold_pick"))
+            try:
+                if "weekly_on" not in ss:
+                    ss.weekly_on = weekly_enabled(engine, email)
+
+                def _toggle_weekly():
+                    set_weekly(engine, email, ss.weekly_on)
+                    ss.hold_flash = ("success", "Haftalık e-posta özeti açıldı: her pazartesi sabah "
+                                     f"{email} adresine gönderilir (son kaydettiğiniz portföy)."
+                                     if ss.weekly_on else "Haftalık e-posta özeti kapatıldı.")
+
+                st.toggle("📧 Haftalık e-posta özeti", key="weekly_on", on_change=_toggle_weekly,
+                          help="Her pazartesi 09:00'da son kaydettiğiniz portföyün değerini, haftalık değişimini ve "
+                               "fiyatı eskimiş fonları e-postayla gönderir.")
+            except Exception:  # noqa: BLE001 - ayar tablosu okunamazsa sayfa çalışmaya devam etsin
+                pass
 
     # --- Girdi sekmeleri (işlem özeti için işlemler önce okunur)
     trades, t_warn = parse_trades(ss.get("txn_current", ss.hold_txns))

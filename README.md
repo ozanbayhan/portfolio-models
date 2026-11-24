@@ -55,6 +55,17 @@ Uygulamanın **Portföyüm** sayfasında varlıklarınızı girip takip edebilir
 
 **TEFAS fonları:** TEFAS otomatik veri erişimini engellediği için fiyatlar sizden gelir. [tefas.gov.tr → Fon Verileri](https://www.tefas.gov.tr/tr/fon-verileri) sayfasından fonu ve tarih aralığını seçip **Excel** ya da **CSV** indirin ve *Fon fiyatları* sekmesinden yükleyin. Dosya okuyucu sütun adlarını ve Türkçe sayı biçimlerini (`2,512345`, `1.234,56`) otomatik tanır. Alternatif olarak tek bir güncel fiyatı pozisyon tablosuna yazabilirsiniz. Fiyat kaynağı önceliği şöyledir: elle girilen güncel fiyat, sonra yüklenen veya elle girilen geçmiş, sonra işlemdeki son fiyat.
 
+### 📧 Haftalık e-posta özeti
+
+Portföyüm sayfasındaki **📧 Haftalık e-posta özeti** anahtarını açan kullanıcılar, her pazartesi 09:00'da (TSİ) son kaydettikleri portföyün özetini e-postayla alır. Özette toplam değer, haftalık değişim, varlık bazında haftalık getiri ve fiyatı eskimiş fonlar bulunur. Gönderimi GitHub Actions ([weekly-report.yml](.github/workflows/weekly-report.yml)) yapar.
+
+Kurulum (bir kez): Gmail'de [uygulama şifresi](https://myaccount.google.com/apppasswords) oluşturun, ardından:
+
+```bash
+bash scripts/setup_weekly_email.sh
+gh workflow run weekly-report.yml -f dry_run=false   # hemen bir deneme gönderimi
+```
+
 ### Giriş ve portföy kaydetme
 
 Kullanıcılar Google hesaplarıyla giriş yapıp ayarlarını adlandırarak kaydedebilir. Kaydedilenler semboller, tarihler, modeller, backtest ayarları ve Black-Litterman görüşleri. Her kullanıcı **yalnızca kendi kayıtlarını** görür, yükler ve siler; bu kontrol sunucu tarafında, e-postaya göre yapılır. Uygulama girişsiz de kullanılabilir, ama kayıt için giriş gerekir.

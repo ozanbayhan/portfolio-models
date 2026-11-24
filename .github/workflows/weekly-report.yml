@@ -1,0 +1,45 @@
+name: Haftalık e-posta özeti
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Her pazartesi 06:00 UTC = 09:00 TSİ
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Göndermeden yalnızca hesapla"
+        type: boolean
+        default: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: ${{ secrets.DB_URL }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST || 'smtp.gmail.com' }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT || '465' }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      MAIL_FROM: ${{ secrets.MAIL_FROM }}
+    steps:
+      - name: Ayarlar var mı?
+        id: check
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$SMTP_USER" ] || [ -z "$SMTP_PASSWORD" ]; then
+            echo "DB_URL / SMTP_USER / SMTP_PASSWORD secret'ları tanımlı değil; e-posta özeti atlandı." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.check.outputs.ready == 'true'
+      - uses: astral-sh/setup-uv@v7
+        if: steps.check.outputs.ready == 'true'
+      - name: Özetleri hesapla ve gönder
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          uv sync --locked
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            uv run python -m portfolio_models.report --dry-run
+          else
+            uv run python -m portfolio_models.report
+          fi
