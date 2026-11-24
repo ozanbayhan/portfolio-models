@@ -41,7 +41,26 @@ portfolios = Table(
     UniqueConstraint("user_email", "name", name="uq_portfolios_user_name"),
 )
 
+holdings = Table(
+    "holdings",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("user_email", String(320), nullable=False, index=True),
+    Column("name", String(120), nullable=False),
+    Column("config", Text, nullable=False),  # JSON: pozisyon satırları
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("user_email", "name", name="uq_holdings_user_name"),
+)
+
+TABLES = {"portfolio": portfolios, "holdings": holdings}
 MAX_PORTFOLIOS_PER_USER = 50
+
+
+def _t(kind: str) -> Table:
+    try:
+        return TABLES[kind]
+    except KeyError:
+        raise ValueError(f"Bilinmeyen kayıt türü: {kind}") from None
 
 
 def make_engine(url: str) -> Engine:
@@ -57,26 +76,26 @@ def _norm(email: str) -> str:
     return email
 
 
-def list_portfolios(engine: Engine, email: str) -> list[dict[str, Any]]:
+def list_portfolios(engine: Engine, email: str, kind: str = "portfolio") -> list[dict[str, Any]]:
+    t = _t(kind)
     q = (
-        select(portfolios.c.name, portfolios.c.updated_at)
-        .where(portfolios.c.user_email == _norm(email))
-        .order_by(portfolios.c.updated_at.desc())
+        select(t.c.name, t.c.updated_at)
+        .where(t.c.user_email == _norm(email))
+        .order_by(t.c.updated_at.desc())
     )
     with engine.connect() as conn:
         return [dict(r._mapping) for r in conn.execute(q)]
 
 
-def load_portfolio(engine: Engine, email: str, name: str) -> dict[str, Any] | None:
-    q = select(portfolios.c.config).where(
-        portfolios.c.user_email == _norm(email), portfolios.c.name == name
-    )
+def load_portfolio(engine: Engine, email: str, name: str, kind: str = "portfolio") -> Any | None:
+    t = _t(kind)
+    q = select(t.c.config).where(t.c.user_email == _norm(email), t.c.name == name)
     with engine.connect() as conn:
         row = conn.execute(q).first()
     return json.loads(row.config) if row else None
 
 
-def save_portfolio(engine: Engine, email: str, name: str, config: dict[str, Any]) -> None:
+def save_portfolio(engine: Engine, email: str, name: str, config: Any, kind: str = "portfolio") -> None:
     """Aynı adla kayıt varsa üzerine yazar, yoksa yenisini ekler."""
     email, name = _norm(email), name.strip()
     if not name:
@@ -85,25 +104,23 @@ def save_portfolio(engine: Engine, email: str, name: str, config: dict[str, Any]
         raise ValueError("Portföy adı en fazla 120 karakter olabilir.")
     payload = json.dumps(config, ensure_ascii=False, default=str)
     now = datetime.now(timezone.utc)
-    where = (portfolios.c.user_email == email) & (portfolios.c.name == name)
+    t = _t(kind)
+    where = (t.c.user_email == email) & (t.c.name == name)
     with engine.begin() as conn:
-        exists = conn.execute(select(portfolios.c.id).where(where)).first()
+        exists = conn.execute(select(t.c.id).where(where)).first()
         if exists:
-            conn.execute(update(portfolios).where(where).values(config=payload, updated_at=now))
+            conn.execute(update(t).where(where).values(config=payload, updated_at=now))
             return
-        count = len(conn.execute(select(portfolios.c.id).where(portfolios.c.user_email == email)).all())
+        count = len(conn.execute(select(t.c.id).where(t.c.user_email == email)).all())
         if count >= MAX_PORTFOLIOS_PER_USER:
             raise ValueError(f"En fazla {MAX_PORTFOLIOS_PER_USER} portföy kaydedebilirsiniz.")
         conn.execute(
-            insert(portfolios).values(user_email=email, name=name, config=payload, updated_at=now)
+            insert(t).values(user_email=email, name=name, config=payload, updated_at=now)
         )
 
 
-def delete_portfolio(engine: Engine, email: str, name: str) -> bool:
+def delete_portfolio(engine: Engine, email: str, name: str, kind: str = "portfolio") -> bool:
+    t = _t(kind)
     with engine.begin() as conn:
-        result = conn.execute(
-            delete(portfolios).where(
-                portfolios.c.user_email == _norm(email), portfolios.c.name == name
-            )
-        )
+        result = conn.execute(delete(t).where(t.c.user_email == _norm(email), t.c.name == name))
     return result.rowcount > 0

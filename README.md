@@ -32,6 +32,18 @@ uv run streamlit run app.py
 
 Tarayıcıda açılır. Sembolleri ve modelleri seçin; ağırlıkları, backtest sonuçlarını, Black-Litterman görüşlerini ve korelasyonları sekmelerde görün.
 
+### 💼 Portföyüm: gerçek portföy takibi
+
+Uygulamanın **Portföyüm** sayfasında varlıklarınızı miktarlarıyla girip takip edebilirsiniz:
+
+- **Desteklenen varlıklar:** BIST hisseleri, Yahoo Finance'teki her sembol (ABD hisseleri, ETF'ler, kripto…), gram altın ve nakit (TRY, USD, EUR…).
+- **TL değerleme:** Döviz cinsinden varlıklar güncel kurla TL'ye çevrilir. Günlük değişim ve dağılım gösterilir. Ortalama maliyet girilen varlıklar için kâr/zarar hesaplanır.
+- **Geçmiş:** Bugünkü miktarlarla son 1 yılın portföy değeri grafiği.
+- **Yeniden dengeleme:** Seçtiğiniz modele (HRP, risk paritesi, maks. Sharpe…) göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır.
+- **Kayıt:** Giriş yaptıysanız pozisyonlarınız adlandırılarak kaydedilir; yalnızca siz görürsünüz.
+
+TEFAS fonları Yahoo Finance'te olmadığı için şimdilik desteklenmiyor.
+
 ### Giriş ve portföy kaydetme
 
 Kullanıcılar Google hesaplarıyla giriş yapıp ayarlarını adlandırarak kaydedebilir. Kaydedilenler semboller, tarihler, modeller, backtest ayarları ve Black-Litterman görüşleri. Her kullanıcı **yalnızca kendi kayıtlarını** görür, yükler ve siler; bu kontrol sunucu tarafında, e-postaya göre yapılır. Uygulama girişsiz de kullanılabilir, ama kayıt için giriş gerekir.

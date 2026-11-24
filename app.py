@@ -127,6 +127,10 @@ for k, v in DEFAULTS.items():
     st.session_state.setdefault(k, v)
 st.session_state.setdefault("end", date.today())
 st.session_state.setdefault("bl_version", 0)
+st.session_state.setdefault("source", "Yahoo Finance")
+# Sayfa değiştirince Streamlit, ekranda olmayan widget'ların değerlerini siler; korumak için yeniden atıyoruz.
+for _k in ("bist_text", "other_text", "start", "end", "models", "train", "test", "source"):
+    st.session_state[_k] = st.session_state[_k]
 
 
 @st.cache_resource(show_spinner=False)
@@ -204,52 +208,69 @@ def select_all_models() -> None:
     st.session_state.models = list(MODEL_DESC)
 
 
-def account_panel() -> None:
-    st.header("Portföylerim")
+def login_box() -> None:
+    """Kenar çubuğunun en üstünde, tüm sayfalarda görünen giriş/çıkış kutusu."""
     email = current_user()
     if email is None and not AUTH_ENABLED:
         st.caption("Giriş ve kayıt özelliği bu sunucuda henüz ayarlanmadı.")
-        return
-    if email is None:
+    elif email is None:
         st.caption("Portföylerinizi kaydetmek için giriş yapın. Kayıtlarınızı yalnızca siz görürsünüz.")
         st.button("Google ile giriş yap", on_click=st.login, type="primary", width="stretch")
-        return
-
-    if not LOCAL_MODE:
+    elif LOCAL_MODE:
+        st.caption("Yerel mod: giriş kapalı, kayıtlar bu bilgisayardaki portfolios.db dosyasında.")
+    else:
         c1, c2 = st.columns([3, 1])
         c1.caption(f"Giriş: **{email}**")
         c2.button("Çıkış", on_click=st.logout, width="stretch")
-    else:
-        st.caption("Yerel mod: giriş kapalı, kayıtlar bu bilgisayardaki portfolios.db dosyasında.")
 
+
+def user_store():
+    """(engine, email) ya da kayıt kullanılamıyorsa (None, neden)."""
+    email = current_user()
+    if email is None:
+        return None, "Kaydetmek için giriş yapın."
     if not LOCAL_MODE and not DB_URL:
-        st.warning("Veritabanı ayarlanmamış; kayıt özelliği kapalı.")
+        return None, "Veritabanı ayarlanmamış; kayıt özelliği kapalı."
+    try:
+        return get_engine(DB_URL or LOCAL_DB), email
+    except Exception as exc:  # noqa: BLE001
+        return None, f"Veritabanına bağlanılamadı: {exc.__class__.__name__}"
+
+
+def show_flash(key: str = "flash") -> None:
+    flash = st.session_state.pop(key, None)
+    if flash:
+        getattr(st, flash[0])(flash[1])
+
+
+def settings_panel() -> None:
+    st.header("Analiz ayarlarım")
+    engine, email = user_store()
+    if engine is None:
+        st.caption(email)
         return
     try:
-        engine = get_engine(DB_URL or LOCAL_DB)
         saved = [p["name"] for p in store.list_portfolios(engine, email)]
     except Exception as exc:  # noqa: BLE001
         st.error(f"Veritabanına bağlanılamadı: {exc.__class__.__name__}")
         return
 
-    flash = st.session_state.pop("flash", None)
-    if flash:
-        getattr(st, flash[0])(flash[1])
+    show_flash()
 
     if saved:
         if st.session_state.get("pf_pick") not in saved:
             st.session_state.pf_pick = None
-        st.selectbox("Kayıtlı portföyler", saved, index=None, placeholder="Seçin…", key="pf_pick")
+        st.selectbox("Kayıtlı ayarlar", saved, index=None, placeholder="Seçin…", key="pf_pick")
         c1, c2 = st.columns(2)
         c1.button("Yükle", on_click=on_load, args=(engine, email), width="stretch",
                   disabled=not st.session_state.get("pf_pick"))
         c2.button("Sil", on_click=on_delete, args=(engine, email), width="stretch",
                   disabled=not st.session_state.get("pf_pick"))
     else:
-        st.caption("Henüz kayıtlı portföyünüz yok.")
+        st.caption("Henüz kayıtlı ayarınız yok.")
 
     with st.form("save_form", clear_on_submit=False, border=False):
-        st.text_input("Bu ayarları kaydet", key="pf_name", placeholder="Portföy adı, örn. BIST + Altın",
+        st.text_input("Bu ayarları kaydet", key="pf_name", placeholder="Ad, örn. BIST + Altın",
                       max_chars=120)
         st.form_submit_button("Kaydet", on_click=on_save, args=(engine, email), width="stretch",
                               disabled=st.session_state.get("source") == "CSV dosyası")
@@ -257,224 +278,243 @@ def account_panel() -> None:
         st.caption("CSV verisi kaydedilmez; kaydetmek için Yahoo Finance kaynağını kullanın.")
 
 
-# --- Kenar çubuğu ------------------------------------------------------------
+# --- Model analizi sayfası -------------------------------------------------
 
-with st.sidebar:
-    account_panel()
+def analysis_page() -> None:
 
-    st.header("Veri")
-    source = st.radio("Kaynak", ["Yahoo Finance", "CSV dosyası"], horizontal=True,
-                      label_visibility="collapsed", key="source")
-    if source == "Yahoo Finance":
-        bist_text = st.text_input("BIST hisseleri", key="bist_text", help="Boşlukla ayırın; .IS eki otomatik eklenir.")
-        other_text = st.text_input("Diğer semboller", key="other_text",
-                                   help="Yahoo sembolleri: GC=F (altın), USDTRY=X, BTC-USD, AAPL…")
-        c1, c2 = st.columns(2)
-        start = c1.date_input("Başlangıç", key="start", min_value=date(2000, 1, 1))
-        end = c2.date_input("Bitiş", key="end")
-        uploaded = None
-    else:
-        uploaded = st.file_uploader("Fiyat dosyası (.csv)", type="csv", help="İlk sütun tarih, diğer sütunlar varlık fiyatları.")
+    with st.sidebar:
+        settings_panel()
 
-    st.header("Modeller")
-    models = st.multiselect(
-        "Karşılaştırılacak modeller",
-        options=list(MODEL_DESC),
-        format_func=lambda m: f"{m} — {MODEL_DESC[m]}",
-        label_visibility="collapsed",
-        key="models",
-    )
-    st.button("Tümünü seç", width="stretch", on_click=select_all_models)
+        st.header("Veri")
+        source = st.radio("Kaynak", ["Yahoo Finance", "CSV dosyası"], horizontal=True,
+                          label_visibility="collapsed", key="source")
+        if source == "Yahoo Finance":
+            bist_text = st.text_input("BIST hisseleri", key="bist_text", help="Boşlukla ayırın; .IS eki otomatik eklenir.")
+            other_text = st.text_input("Diğer semboller", key="other_text",
+                                       help="Yahoo sembolleri: GC=F (altın), USDTRY=X, BTC-USD, AAPL…")
+            c1, c2 = st.columns(2)
+            start = c1.date_input("Başlangıç", key="start", min_value=date(2000, 1, 1))
+            end = c2.date_input("Bitiş", key="end")
+            uploaded = None
+        else:
+            uploaded = st.file_uploader("Fiyat dosyası (.csv)", type="csv", help="İlk sütun tarih, diğer sütunlar varlık fiyatları.")
 
-    st.header("Backtest")
-    train = st.slider("Eğitim penceresi (iş günü)", 63, 756, step=21, help="252 ≈ 1 yıl", key="train")
-    test = st.slider("Yeniden dengeleme aralığı (iş günü)", 5, 126, step=1, help="21 ≈ 1 ay", key="test")
-
-# --- Veri yükleme ------------------------------------------------------------
-
-st.title("📊 Portföy Modelleri")
-st.caption(
-    "skfolio · Riskfolio-Lib · PyPortfolioOpt — "
-    "[GitHub](https://github.com/ozanbayhan/portfolio-models) · [Gizlilik](?page=privacy) · [Koşullar](?page=terms) · "
-    "Eğitim amaçlıdır, yatırım tavsiyesi değildir."
-)
-
-try:
-    if source == "CSV dosyası":
-        if uploaded is None:
-            st.info("Sol panelden bir CSV dosyası yükleyin.")
-            st.stop()
-        prices = read_uploaded(uploaded.getvalue())
-    else:
-        tickers = bist(*bist_text.split()) + other_text.split()
-        if len(tickers) < 2:
-            st.warning("En az 2 sembol girin.")
-            st.stop()
-        prices = cached_prices(tuple(tickers), str(start), str(end))
-except Exception as exc:  # noqa: BLE001
-    st.error(f"Veri yüklenemedi: {exc}")
-    st.stop()
-
-returns = to_returns(prices)
-if not models:
-    st.warning("En az bir model seçin.")
-    st.stop()
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Varlık", prices.shape[1])
-m2.metric("Gün", len(prices))
-m3.metric("Dönem", f"{prices.index[0]:%d.%m.%Y} → {prices.index[-1]:%d.%m.%Y}")
-
-tab_w, tab_bt, tab_bl, tab_data, tab_info = st.tabs(
-    ["Ağırlıklar", "Backtest", "Black-Litterman", "Veri", "Modeller"]
-)
-
-
-def show_errors(errors: list[tuple[str, Exception]]) -> None:
-    for name, exc in errors:
-        st.warning(f"**{name}** atlandı: {exc}")
-
-
-# --- Ağırlıklar --------------------------------------------------------------
-
-with tab_w:
-    st.subheader("Güncel ağırlıklar")
-    st.caption("Her model seçilen dönemin tamamıyla eğitilir; bugün kurulacak portföyü gösterir.")
-    errors: list = []
-    with st.spinner("Modeller eğitiliyor…"):
-        weights = fit_weights(returns, models, on_error=lambda n, e: errors.append((n, e)))
-    show_errors(errors)
-    if not weights.empty:
-        st.dataframe(
-            weights.style.format("{:.1%}").background_gradient(cmap="Blues", axis=None),
-            width="stretch",
+        st.header("Modeller")
+        models = st.multiselect(
+            "Karşılaştırılacak modeller",
+            options=list(MODEL_DESC),
+            format_func=lambda m: f"{m} — {MODEL_DESC[m]}",
+            label_visibility="collapsed",
+            key="models",
         )
-        long = weights.reset_index(names="Varlık").melt("Varlık", var_name="Model", value_name="Ağırlık")
-        fig = px.bar(long, x="Model", y="Ağırlık", color="Varlık", barmode="stack")
-        fig.update_layout(yaxis_tickformat=".0%", height=450, legend_title=None)
-        st.plotly_chart(fig, width="stretch")
-        st.download_button("CSV indir", weights.to_csv().encode(), "weights.csv", "text/csv")
+        st.button("Tümünü seç", width="stretch", on_click=select_all_models)
 
-# --- Backtest ----------------------------------------------------------------
+        st.header("Backtest")
+        train = st.slider("Eğitim penceresi (iş günü)", 63, 756, step=21, help="252 ≈ 1 yıl", key="train")
+        test = st.slider("Yeniden dengeleme aralığı (iş günü)", 5, 126, step=1, help="21 ≈ 1 ay", key="test")
 
-with tab_bt:
-    st.subheader("Walk-forward backtest")
+    # --- Veri yükleme ------------------------------------------------------------
+
+    st.title("📊 Model analizi")
     st.caption(
-        f"Her model {train} iş günü veriyle eğitilir, sonraki {test} gün tutulur, sonra pencere kaydırılır. "
-        "Sonuçlar yalnızca modelin o an göremediği verilerden hesaplanır."
+        "skfolio · Riskfolio-Lib · PyPortfolioOpt — "
+        "[GitHub](https://github.com/ozanbayhan/portfolio-models) · [Gizlilik](?page=privacy) · [Koşullar](?page=terms) · "
+        "Eğitim amaçlıdır, yatırım tavsiyesi değildir."
     )
-    if len(returns) <= train + test:
-        st.warning("Bu ayarlar için veri kısa; başlangıç tarihini geriye alın veya eğitim penceresini küçültün.")
-    else:
-        bt_key = (tuple(returns.columns), str(returns.index[0]), str(returns.index[-1]), tuple(models), train, test)
-        if st.button("Backtest'i çalıştır", type="primary"):
-            errors = []
-            with st.spinner(f"{len(models)} model test ediliyor…"):
-                population = backtest(
-                    returns, models, train_size=train, test_size=test, on_error=lambda n, e: errors.append((n, e))
-                )
-            st.session_state["bt"] = (bt_key, population, errors)
-        saved = st.session_state.get("bt")
-        if saved and saved[0] != bt_key:
-            st.info("Ayarlar değişti; güncel sonuç için backtest'i yeniden çalıştırın.")
-            saved = None
-        population, errors = (saved[1], saved[2]) if saved else (None, [])
+
+    try:
+        if source == "CSV dosyası":
+            if uploaded is None:
+                st.info("Sol panelden bir CSV dosyası yükleyin.")
+                st.stop()
+            prices = read_uploaded(uploaded.getvalue())
+        else:
+            tickers = bist(*bist_text.split()) + other_text.split()
+            if len(tickers) < 2:
+                st.warning("En az 2 sembol girin.")
+                st.stop()
+            prices = cached_prices(tuple(tickers), str(start), str(end))
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Veri yüklenemedi: {exc}")
+        st.stop()
+
+    returns = to_returns(prices)
+    if not models:
+        st.warning("En az bir model seçin.")
+        st.stop()
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Varlık", prices.shape[1])
+    m2.metric("Gün", len(prices))
+    m3.metric("Dönem", f"{prices.index[0]:%d.%m.%Y} → {prices.index[-1]:%d.%m.%Y}")
+
+    tab_w, tab_bt, tab_bl, tab_data, tab_info = st.tabs(
+        ["Ağırlıklar", "Backtest", "Black-Litterman", "Veri", "Modeller"]
+    )
+
+
+    def show_errors(errors: list[tuple[str, Exception]]) -> None:
+        for name, exc in errors:
+            st.warning(f"**{name}** atlandı: {exc}")
+
+
+    # --- Ağırlıklar --------------------------------------------------------------
+
+    with tab_w:
+        st.subheader("Güncel ağırlıklar")
+        st.caption("Her model seçilen dönemin tamamıyla eğitilir; bugün kurulacak portföyü gösterir.")
+        errors: list = []
+        with st.spinner("Modeller eğitiliyor…"):
+            weights = fit_weights(returns, models, on_error=lambda n, e: errors.append((n, e)))
         show_errors(errors)
-        if population is not None and len(population):
-            table = summarize(population)
-            fmt = {c: "{:.1%}" for c in PCT_COLS if c in table}
-            fmt |= {c: "{:.2f}" for c in ("Sharpe", "Sortino") if c in table}
+        if not weights.empty:
             st.dataframe(
-                table.style.format(fmt).highlight_max(subset=["Sharpe"], props="background-color:#c6efce;color:#111;font-weight:600"),
+                weights.style.format("{:.1%}").background_gradient(cmap="Blues", axis=None),
                 width="stretch",
             )
-            st.plotly_chart(population.plot_cumulative_returns(), width="stretch")
-            st.plotly_chart(population.plot_drawdowns(), width="stretch")
-            st.plotly_chart(population.plot_composition(), width="stretch")
-            st.download_button("Özet CSV indir", table.to_csv().encode(), "backtest_summary.csv", "text/csv")
-
-# --- Black-Litterman ---------------------------------------------------------
-
-with tab_bl:
-    st.subheader("Kendi görüşlerinizle Black-Litterman")
-    st.caption(
-        "Görüşlerinizi yıllık getiri olarak girin. **Mutlak**: varlık bu kadar getirir. "
-        "**Göreli**: Varlık 1, Varlık 2'yi bu kadar geçer. Model geçmiş veriyle görüşlerinizi harmanlar."
-    )
-    assets = list(returns.columns)
-    loaded = st.session_state.get("bl_loaded")
-    if loaded:
-        default_views = pd.DataFrame(loaded, columns=["Tür", "Varlık 1", "Varlık 2", "Yıllık getiri %"])
-        default_views = default_views[default_views["Varlık 1"].isin(assets)]
-        default_views.loc[~default_views["Varlık 2"].isin(assets), "Varlık 2"] = None
-    else:
-        default_views = pd.DataFrame(
-            [
-                {"Tür": "Mutlak", "Varlık 1": assets[0], "Varlık 2": None, "Yıllık getiri %": 25.0},
-                {"Tür": "Göreli", "Varlık 1": assets[1], "Varlık 2": assets[-1], "Yıllık getiri %": 10.0},
-            ]
-        )
-    views_df = st.data_editor(
-        default_views,
-        num_rows="dynamic",
-        width="stretch",
-        column_config={
-            "Tür": st.column_config.SelectboxColumn(options=["Mutlak", "Göreli"], required=True),
-            "Varlık 1": st.column_config.SelectboxColumn(options=assets, required=True),
-            "Varlık 2": st.column_config.SelectboxColumn(options=assets),
-            "Yıllık getiri %": st.column_config.NumberColumn(format="%.1f", step=1.0, required=True),
-        },
-        key=f"bl_views_{st.session_state.bl_version}",
-    )
-    st.session_state.bl_current = views_df.astype(object).where(views_df.notna(), None).to_dict("records")
-    tau = st.slider("Görüşlere güven (tau)", 0.01, 0.5, 0.05, 0.01, help="Büyüdükçe görüşleriniz daha ağır basar.")
-
-    views: list[str] = []
-    for _, row in views_df.dropna(subset=["Varlık 1", "Yıllık getiri %"]).iterrows():
-        daily = row["Yıllık getiri %"] / 100 / 252
-        if row["Tür"] == "Göreli" and row["Varlık 2"] and row["Varlık 2"] != row["Varlık 1"]:
-            views.append(f"{row['Varlık 1']} - {row['Varlık 2']} == {daily:.8f}")
-        elif row["Tür"] == "Mutlak":
-            views.append(f"{row['Varlık 1']} == {daily:.8f}")
-
-    if views and st.button("Hesapla", type="primary", key="bl_run"):
-        try:
-            base = MeanRisk(objective_function=ObjectiveFunction.MAXIMIZE_RATIO, risk_measure=RiskMeasure.VARIANCE)
-            bl = MeanRisk(
-                objective_function=ObjectiveFunction.MAXIMIZE_RATIO,
-                risk_measure=RiskMeasure.VARIANCE,
-                prior_estimator=BlackLitterman(views=views, tau=tau),
-            )
-            base.fit(returns)
-            bl.fit(returns)
-            comp = pd.DataFrame(
-                {"Görüşsüz (maks. Sharpe)": base.weights_, "Görüşlerle (Black-Litterman)": bl.weights_},
-                index=assets,
-            )
-            st.dataframe(comp.style.format("{:.1%}"), width="stretch")
-            long = comp.reset_index(names="Varlık").melt("Varlık", var_name="Model", value_name="Ağırlık")
-            fig = px.bar(long, x="Varlık", y="Ağırlık", color="Model", barmode="group")
-            fig.update_layout(yaxis_tickformat=".0%", legend_title=None)
+            long = weights.reset_index(names="Varlık").melt("Varlık", var_name="Model", value_name="Ağırlık")
+            fig = px.bar(long, x="Model", y="Ağırlık", color="Varlık", barmode="stack")
+            fig.update_layout(yaxis_tickformat=".0%", height=450, legend_title=None)
             st.plotly_chart(fig, width="stretch")
-        except Exception as exc:  # noqa: BLE001
-            st.error(f"Hesaplanamadı: {exc}")
+            st.download_button("CSV indir", weights.to_csv().encode(), "weights.csv", "text/csv")
 
-# --- Veri --------------------------------------------------------------------
+    # --- Backtest ----------------------------------------------------------------
 
-with tab_data:
-    st.subheader("Normalize fiyatlar (başlangıç = 100)")
-    st.plotly_chart(px.line(prices / prices.iloc[0] * 100), width="stretch")
-    st.subheader("Korelasyon")
-    st.plotly_chart(
-        px.imshow(returns.corr(), text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1),
-        width="stretch",
-    )
+    with tab_bt:
+        st.subheader("Walk-forward backtest")
+        st.caption(
+            f"Her model {train} iş günü veriyle eğitilir, sonraki {test} gün tutulur, sonra pencere kaydırılır. "
+            "Sonuçlar yalnızca modelin o an göremediği verilerden hesaplanır."
+        )
+        if len(returns) <= train + test:
+            st.warning("Bu ayarlar için veri kısa; başlangıç tarihini geriye alın veya eğitim penceresini küçültün.")
+        else:
+            bt_key = (tuple(returns.columns), str(returns.index[0]), str(returns.index[-1]), tuple(models), train, test)
+            if st.button("Backtest'i çalıştır", type="primary"):
+                errors = []
+                with st.spinner(f"{len(models)} model test ediliyor…"):
+                    population = backtest(
+                        returns, models, train_size=train, test_size=test, on_error=lambda n, e: errors.append((n, e))
+                    )
+                st.session_state["bt"] = (bt_key, population, errors)
+            saved = st.session_state.get("bt")
+            if saved and saved[0] != bt_key:
+                st.info("Ayarlar değişti; güncel sonuç için backtest'i yeniden çalıştırın.")
+                saved = None
+            population, errors = (saved[1], saved[2]) if saved else (None, [])
+            show_errors(errors)
+            if population is not None and len(population):
+                table = summarize(population)
+                fmt = {c: "{:.1%}" for c in PCT_COLS if c in table}
+                fmt |= {c: "{:.2f}" for c in ("Sharpe", "Sortino") if c in table}
+                st.dataframe(
+                    table.style.format(fmt).highlight_max(subset=["Sharpe"], props="background-color:#c6efce;color:#111;font-weight:600"),
+                    width="stretch",
+                )
+                st.plotly_chart(population.plot_cumulative_returns(), width="stretch")
+                st.plotly_chart(population.plot_drawdowns(), width="stretch")
+                st.plotly_chart(population.plot_composition(), width="stretch")
+                st.download_button("Özet CSV indir", table.to_csv().encode(), "backtest_summary.csv", "text/csv")
 
-# --- Model listesi -----------------------------------------------------------
+    # --- Black-Litterman ---------------------------------------------------------
 
-with tab_info:
-    st.dataframe(
-        pd.DataFrame(list_models(), columns=["Model", "Açıklama"]),
-        hide_index=True,
-        width="stretch",
-    )
+    with tab_bl:
+        st.subheader("Kendi görüşlerinizle Black-Litterman")
+        st.caption(
+            "Görüşlerinizi yıllık getiri olarak girin. **Mutlak**: varlık bu kadar getirir. "
+            "**Göreli**: Varlık 1, Varlık 2'yi bu kadar geçer. Model geçmiş veriyle görüşlerinizi harmanlar."
+        )
+        assets = list(returns.columns)
+        loaded = st.session_state.get("bl_loaded")
+        if loaded:
+            default_views = pd.DataFrame(loaded, columns=["Tür", "Varlık 1", "Varlık 2", "Yıllık getiri %"])
+            default_views = default_views[default_views["Varlık 1"].isin(assets)]
+            default_views.loc[~default_views["Varlık 2"].isin(assets), "Varlık 2"] = None
+        else:
+            default_views = pd.DataFrame(
+                [
+                    {"Tür": "Mutlak", "Varlık 1": assets[0], "Varlık 2": None, "Yıllık getiri %": 25.0},
+                    {"Tür": "Göreli", "Varlık 1": assets[1], "Varlık 2": assets[-1], "Yıllık getiri %": 10.0},
+                ]
+            )
+        views_df = st.data_editor(
+            default_views,
+            num_rows="dynamic",
+            width="stretch",
+            column_config={
+                "Tür": st.column_config.SelectboxColumn(options=["Mutlak", "Göreli"], required=True),
+                "Varlık 1": st.column_config.SelectboxColumn(options=assets, required=True),
+                "Varlık 2": st.column_config.SelectboxColumn(options=assets),
+                "Yıllık getiri %": st.column_config.NumberColumn(format="%.1f", step=1.0, required=True),
+            },
+            key=f"bl_views_{st.session_state.bl_version}",
+        )
+        st.session_state.bl_current = views_df.astype(object).where(views_df.notna(), None).to_dict("records")
+        tau = st.slider("Görüşlere güven (tau)", 0.01, 0.5, 0.05, 0.01, help="Büyüdükçe görüşleriniz daha ağır basar.")
+
+        views: list[str] = []
+        for _, row in views_df.dropna(subset=["Varlık 1", "Yıllık getiri %"]).iterrows():
+            daily = row["Yıllık getiri %"] / 100 / 252
+            if row["Tür"] == "Göreli" and row["Varlık 2"] and row["Varlık 2"] != row["Varlık 1"]:
+                views.append(f"{row['Varlık 1']} - {row['Varlık 2']} == {daily:.8f}")
+            elif row["Tür"] == "Mutlak":
+                views.append(f"{row['Varlık 1']} == {daily:.8f}")
+
+        if views and st.button("Hesapla", type="primary", key="bl_run"):
+            try:
+                base = MeanRisk(objective_function=ObjectiveFunction.MAXIMIZE_RATIO, risk_measure=RiskMeasure.VARIANCE)
+                bl = MeanRisk(
+                    objective_function=ObjectiveFunction.MAXIMIZE_RATIO,
+                    risk_measure=RiskMeasure.VARIANCE,
+                    prior_estimator=BlackLitterman(views=views, tau=tau),
+                )
+                base.fit(returns)
+                bl.fit(returns)
+                comp = pd.DataFrame(
+                    {"Görüşsüz (maks. Sharpe)": base.weights_, "Görüşlerle (Black-Litterman)": bl.weights_},
+                    index=assets,
+                )
+                st.dataframe(comp.style.format("{:.1%}"), width="stretch")
+                long = comp.reset_index(names="Varlık").melt("Varlık", var_name="Model", value_name="Ağırlık")
+                fig = px.bar(long, x="Varlık", y="Ağırlık", color="Model", barmode="group")
+                fig.update_layout(yaxis_tickformat=".0%", legend_title=None)
+                st.plotly_chart(fig, width="stretch")
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Hesaplanamadı: {exc}")
+
+    # --- Veri --------------------------------------------------------------------
+
+    with tab_data:
+        st.subheader("Normalize fiyatlar (başlangıç = 100)")
+        st.plotly_chart(px.line(prices / prices.iloc[0] * 100), width="stretch")
+        st.subheader("Korelasyon")
+        st.plotly_chart(
+            px.imshow(returns.corr(), text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1),
+            width="stretch",
+        )
+
+    # --- Model listesi -----------------------------------------------------------
+
+    with tab_info:
+        st.dataframe(
+            pd.DataFrame(list_models(), columns=["Model", "Açıklama"]),
+            hide_index=True,
+            width="stretch",
+        )
+
+
+# --- Sayfalar ----------------------------------------------------------------
+
+from holdings_page import holdings_page  # noqa: E402
+
+with st.sidebar:
+    login_box()
+
+pg = st.navigation(
+    [
+        st.Page(analysis_page, title="Model analizi", icon="📊", url_path="analiz", default=True),
+        st.Page(lambda: holdings_page(user_store, show_flash, MODEL_DESC), title="Portföyüm", icon="💼",
+                url_path="portfoyum"),
+    ]
+)
+pg.run()
