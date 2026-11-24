@@ -52,7 +52,18 @@ holdings = Table(
     UniqueConstraint("user_email", "name", name="uq_holdings_user_name"),
 )
 
-TABLES = {"portfolio": portfolios, "holdings": holdings}
+fund_prices = Table(
+    "fund_prices",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("user_email", String(320), nullable=False, index=True),
+    Column("name", String(120), nullable=False),  # fon kodu
+    Column("config", Text, nullable=False),  # JSON: {"YYYY-MM-DD": fiyat}
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("user_email", "name", name="uq_fund_prices_user_name"),
+)
+
+TABLES = {"portfolio": portfolios, "holdings": holdings, "fund_prices": fund_prices}
 MAX_PORTFOLIOS_PER_USER = 50
 
 

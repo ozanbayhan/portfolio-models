@@ -34,15 +34,20 @@ Tarayıcıda açılır. Sembolleri ve modelleri seçin; ağırlıkları, backtes
 
 ### 💼 Portföyüm: gerçek portföy takibi
 
-Uygulamanın **Portföyüm** sayfasında varlıklarınızı miktarlarıyla girip takip edebilirsiniz:
+Uygulamanın **Portföyüm** sayfasında varlıklarınızı girip takip edebilirsiniz. Girişler üç sekmede yapılır:
+
+| Sekme | Ne girersiniz | Ne elde edersiniz |
+|---|---|---|
+| 📋 **Pozisyonlar** | Şu an elinizde olanlar: tür, sembol, miktar, isteğe bağlı ortalama maliyet | Hızlı başlangıç |
+| 🧾 **İşlemler** | Her alım/satım: tarih, Al/Sat, sembol, adet, birim fiyat | Miktar ve ortalama maliyet otomatik hesaplanır. Gerçekleşen K/Z, yıllık getiri (XIRR) ve o tarihlerde gerçekten elde olanlarla değer grafiği |
+| 📈 **Fon fiyatları** | TEFAS'tan indirilen CSV/Excel dosyası ya da tarih–fiyat tablosu (elle) | Fonlar değer grafiğine, günlük değişime ve yeniden dengelemeye katılır |
 
 - **Desteklenen varlıklar:** BIST hisseleri, TEFAS fonları, Yahoo Finance'teki her sembol (ABD hisseleri, ETF'ler, kripto…), gram altın ve nakit (TRY, USD, EUR…).
-- **TL değerleme:** Döviz cinsinden varlıklar güncel kurla TL'ye çevrilir. Günlük değişim ve dağılım gösterilir. Ortalama maliyet girilen varlıklar için kâr/zarar hesaplanır.
-- **Geçmiş:** Bugünkü miktarlarla son 1 yılın portföy değeri grafiği.
-- **Yeniden dengeleme:** Seçtiğiniz modele (HRP, risk paritesi, maks. Sharpe…) göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır.
-- **Kayıt:** Giriş yaptıysanız pozisyonlarınız adlandırılarak kaydedilir; yalnızca siz görürsünüz.
+- **TL değerleme:** Döviz cinsinden varlıklar güncel kurla, işlemler ise işlem günündeki kurla TL'ye çevrilir.
+- **Yeniden dengeleme:** Seçtiğiniz modele göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır; öneri hiçbir zaman eksi nakde düşürmez.
+- **Kayıt:** Giriş yaptıysanız pozisyonlar ve işlemler adlandırılarak, fon fiyatları da hesabınıza kaydedilir. Bunları yalnızca siz görürsünüz.
 
-**TEFAS fonları:** TEFAS otomatik veri erişimini engellediği için fonun güncel birim fiyatını siz girersiniz ([tefas.gov.tr → Fon Verileri](https://www.tefas.gov.tr/tr/fon-verileri)). Fonlar toplam değer, dağılım ve kâr/zarara dahil edilir. Fiyat geçmişi olmadığı için yeniden dengelemede oldukları gibi bırakılır.
+**TEFAS fonları:** TEFAS otomatik veri erişimini engellediği için fiyatlar sizden gelir. [tefas.gov.tr → Fon Verileri](https://www.tefas.gov.tr/tr/fon-verileri) sayfasından fonu ve tarih aralığını seçip **Excel** ya da **CSV** indirin ve *Fon fiyatları* sekmesinden yükleyin. Dosya okuyucu sütun adlarını ve Türkçe sayı biçimlerini (`2,512345`, `1.234,56`) otomatik tanır. Alternatif olarak tek bir güncel fiyatı pozisyon tablosuna yazabilirsiniz. Fiyat kaynağı önceliği şöyledir: elle girilen güncel fiyat, sonra yüklenen veya elle girilen geçmiş, sonra işlemdeki son fiyat.
 
 ### Giriş ve portföy kaydetme
 
