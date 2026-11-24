@@ -20,6 +20,7 @@ from skfolio.prior import BlackLitterman
 
 from portfolio_models import backtest, bist, fit_weights, list_models, summarize, to_returns
 from portfolio_models.data import clean_prices, load_prices
+from portfolio_models import store
 
 st.set_page_config(page_title="Portföy Modelleri", page_icon="📊", layout="wide")
 
@@ -40,17 +41,187 @@ def read_uploaded(data: bytes) -> pd.DataFrame:
     return clean_prices(pd.read_csv(BytesIO(data), index_col=0, parse_dates=True))
 
 
+# --- Hesap ve kayıt ----------------------------------------------------------
+
+def _secret(*keys: str):
+    try:
+        node = st.secrets
+        for k in keys:
+            node = node[k]
+        return node
+    except Exception:  # noqa: BLE001 - secrets dosyası yoksa ya da anahtar eksikse
+        return None
+
+
+AUTH_ENABLED = _secret("auth") is not None
+# Yerel mod (girişsiz, tek kullanıcı) yalnızca kendi bilgisayarınızda, secrets.toml içinde
+# `local_mode = true` yazılıysa açılır. Bulutta asla açık değildir: aksi halde tüm
+# ziyaretçiler aynı kayıtları paylaşırdı.
+LOCAL_MODE = not AUTH_ENABLED and _secret("local_mode") is True
+DB_URL = _secret("connections", "portfolios", "url")
+LOCAL_DB = f"sqlite:///{Path(__file__).parent / 'portfolios.db'}"
+
+DEFAULTS = {
+    "bist_text": "THYAO ASELS EREGL GARAN BIMAS",
+    "other_text": "GC=F",
+    "start": date(2020, 1, 1),
+    "end": None,  # None = bugün
+    "models": DEFAULT_MODELS,
+    "train": 252,
+    "test": 21,
+    "bl_views": None,
+}
+for k, v in DEFAULTS.items():
+    if k in ("end", "bl_views"):
+        continue
+    st.session_state.setdefault(k, v)
+st.session_state.setdefault("end", date.today())
+st.session_state.setdefault("bl_version", 0)
+
+
+@st.cache_resource(show_spinner=False)
+def get_engine(url: str):
+    return store.make_engine(url)
+
+
+def current_user() -> str | None:
+    """Giriş yapan kullanıcının e-postası. Giriş ayarlı değilse (yerel geliştirme) sabit bir kullanıcı."""
+    if LOCAL_MODE:
+        return "yerel@localhost"
+    if not AUTH_ENABLED:
+        return None
+    if st.user.get("is_logged_in", False):
+        return st.user.get("email")
+    return None
+
+
+def current_config() -> dict:
+    ss = st.session_state
+    return {
+        "bist_text": ss.bist_text,
+        "other_text": ss.other_text,
+        "start": str(ss.start),
+        "end": str(ss.end),
+        "models": list(ss.models),
+        "train": ss.train,
+        "test": ss.test,
+        "bl_views": ss.get("bl_current"),
+    }
+
+
+def apply_config(cfg: dict) -> None:
+    ss = st.session_state
+    ss.source = "Yahoo Finance"
+    ss.bist_text = cfg.get("bist_text", DEFAULTS["bist_text"])
+    ss.other_text = cfg.get("other_text", DEFAULTS["other_text"])
+    ss.start = date.fromisoformat(cfg["start"]) if cfg.get("start") else DEFAULTS["start"]
+    ss.end = date.fromisoformat(cfg["end"]) if cfg.get("end") else date.today()
+    ss.models = [m for m in cfg.get("models", DEFAULT_MODELS) if m in MODEL_DESC]
+    ss.train = int(cfg.get("train", 252))
+    ss.test = int(cfg.get("test", 21))
+    ss.bl_loaded = cfg.get("bl_views")
+    ss.bl_version += 1  # görüş tablosunu yeniden oluştur
+    ss.pop("bt", None)
+
+
+def on_load(engine, email: str) -> None:
+    name = st.session_state.get("pf_pick")
+    cfg = store.load_portfolio(engine, email, name) if name else None
+    if cfg:
+        apply_config(cfg)
+        st.session_state.pf_name = name
+        st.session_state.flash = ("success", f"“{name}” yüklendi.")
+
+
+def on_save(engine, email: str) -> None:
+    name = (st.session_state.get("pf_name") or "").strip()
+    try:
+        store.save_portfolio(engine, email, name, current_config())
+        st.session_state.pf_pick = name
+        st.session_state.flash = ("success", f"“{name}” kaydedildi.")
+    except ValueError as exc:
+        st.session_state.flash = ("error", str(exc))
+
+
+def on_delete(engine, email: str) -> None:
+    name = st.session_state.get("pf_pick")
+    if name and store.delete_portfolio(engine, email, name):
+        st.session_state.pf_pick = None
+        st.session_state.flash = ("success", f"“{name}” silindi.")
+
+
+def select_all_models() -> None:
+    st.session_state.models = list(MODEL_DESC)
+
+
+def account_panel() -> None:
+    st.header("Portföylerim")
+    email = current_user()
+    if email is None and not AUTH_ENABLED:
+        st.caption("Giriş ve kayıt özelliği bu sunucuda henüz ayarlanmadı.")
+        return
+    if email is None:
+        st.caption("Portföylerinizi kaydetmek için giriş yapın. Kayıtlarınızı yalnızca siz görürsünüz.")
+        st.button("Google ile giriş yap", on_click=st.login, type="primary", width="stretch")
+        return
+
+    if not LOCAL_MODE:
+        c1, c2 = st.columns([3, 1])
+        c1.caption(f"Giriş: **{email}**")
+        c2.button("Çıkış", on_click=st.logout, width="stretch")
+    else:
+        st.caption("Yerel mod: giriş kapalı, kayıtlar bu bilgisayardaki portfolios.db dosyasında.")
+
+    if not LOCAL_MODE and not DB_URL:
+        st.warning("Veritabanı ayarlanmamış; kayıt özelliği kapalı.")
+        return
+    try:
+        engine = get_engine(DB_URL or LOCAL_DB)
+        saved = [p["name"] for p in store.list_portfolios(engine, email)]
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Veritabanına bağlanılamadı: {exc.__class__.__name__}")
+        return
+
+    flash = st.session_state.pop("flash", None)
+    if flash:
+        getattr(st, flash[0])(flash[1])
+
+    if saved:
+        if st.session_state.get("pf_pick") not in saved:
+            st.session_state.pf_pick = None
+        st.selectbox("Kayıtlı portföyler", saved, index=None, placeholder="Seçin…", key="pf_pick")
+        c1, c2 = st.columns(2)
+        c1.button("Yükle", on_click=on_load, args=(engine, email), width="stretch",
+                  disabled=not st.session_state.get("pf_pick"))
+        c2.button("Sil", on_click=on_delete, args=(engine, email), width="stretch",
+                  disabled=not st.session_state.get("pf_pick"))
+    else:
+        st.caption("Henüz kayıtlı portföyünüz yok.")
+
+    with st.form("save_form", clear_on_submit=False, border=False):
+        st.text_input("Bu ayarları kaydet", key="pf_name", placeholder="Portföy adı, örn. BIST + Altın",
+                      max_chars=120)
+        st.form_submit_button("Kaydet", on_click=on_save, args=(engine, email), width="stretch",
+                              disabled=st.session_state.get("source") == "CSV dosyası")
+    if st.session_state.get("source") == "CSV dosyası":
+        st.caption("CSV verisi kaydedilmez; kaydetmek için Yahoo Finance kaynağını kullanın.")
+
+
 # --- Kenar çubuğu ------------------------------------------------------------
 
 with st.sidebar:
+    account_panel()
+
     st.header("Veri")
-    source = st.radio("Kaynak", ["Yahoo Finance", "CSV dosyası"], horizontal=True, label_visibility="collapsed")
+    source = st.radio("Kaynak", ["Yahoo Finance", "CSV dosyası"], horizontal=True,
+                      label_visibility="collapsed", key="source")
     if source == "Yahoo Finance":
-        bist_text = st.text_input("BIST hisseleri", "THYAO ASELS EREGL GARAN BIMAS", help="Boşlukla ayırın; .IS eki otomatik eklenir.")
-        other_text = st.text_input("Diğer semboller", "GC=F", help="Yahoo sembolleri: GC=F (altın), USDTRY=X, BTC-USD, AAPL…")
+        bist_text = st.text_input("BIST hisseleri", key="bist_text", help="Boşlukla ayırın; .IS eki otomatik eklenir.")
+        other_text = st.text_input("Diğer semboller", key="other_text",
+                                   help="Yahoo sembolleri: GC=F (altın), USDTRY=X, BTC-USD, AAPL…")
         c1, c2 = st.columns(2)
-        start = c1.date_input("Başlangıç", date(2020, 1, 1), min_value=date(2000, 1, 1))
-        end = c2.date_input("Bitiş", date.today())
+        start = c1.date_input("Başlangıç", key="start", min_value=date(2000, 1, 1))
+        end = c2.date_input("Bitiş", key="end")
         uploaded = None
     else:
         uploaded = st.file_uploader("Fiyat dosyası (.csv)", type="csv", help="İlk sütun tarih, diğer sütunlar varlık fiyatları.")
@@ -59,16 +230,15 @@ with st.sidebar:
     models = st.multiselect(
         "Karşılaştırılacak modeller",
         options=list(MODEL_DESC),
-        default=DEFAULT_MODELS,
         format_func=lambda m: f"{m} — {MODEL_DESC[m]}",
         label_visibility="collapsed",
+        key="models",
     )
-    if st.button("Tümünü seç", width="stretch"):
-        models = list(MODEL_DESC)
+    st.button("Tümünü seç", width="stretch", on_click=select_all_models)
 
     st.header("Backtest")
-    train = st.slider("Eğitim penceresi (iş günü)", 63, 756, 252, step=21, help="252 ≈ 1 yıl")
-    test = st.slider("Yeniden dengeleme aralığı (iş günü)", 5, 126, 21, step=1, help="21 ≈ 1 ay")
+    train = st.slider("Eğitim penceresi (iş günü)", 63, 756, step=21, help="252 ≈ 1 yıl", key="train")
+    test = st.slider("Yeniden dengeleme aralığı (iş günü)", 5, 126, step=1, help="21 ≈ 1 ay", key="test")
 
 # --- Veri yükleme ------------------------------------------------------------
 
@@ -181,12 +351,18 @@ with tab_bl:
         "**Göreli**: Varlık 1, Varlık 2'yi bu kadar geçer. Model geçmiş veriyle görüşlerinizi harmanlar."
     )
     assets = list(returns.columns)
-    default_views = pd.DataFrame(
-        [
-            {"Tür": "Mutlak", "Varlık 1": assets[0], "Varlık 2": None, "Yıllık getiri %": 25.0},
-            {"Tür": "Göreli", "Varlık 1": assets[1], "Varlık 2": assets[-1], "Yıllık getiri %": 10.0},
-        ]
-    )
+    loaded = st.session_state.get("bl_loaded")
+    if loaded:
+        default_views = pd.DataFrame(loaded, columns=["Tür", "Varlık 1", "Varlık 2", "Yıllık getiri %"])
+        default_views = default_views[default_views["Varlık 1"].isin(assets)]
+        default_views.loc[~default_views["Varlık 2"].isin(assets), "Varlık 2"] = None
+    else:
+        default_views = pd.DataFrame(
+            [
+                {"Tür": "Mutlak", "Varlık 1": assets[0], "Varlık 2": None, "Yıllık getiri %": 25.0},
+                {"Tür": "Göreli", "Varlık 1": assets[1], "Varlık 2": assets[-1], "Yıllık getiri %": 10.0},
+            ]
+        )
     views_df = st.data_editor(
         default_views,
         num_rows="dynamic",
@@ -197,8 +373,9 @@ with tab_bl:
             "Varlık 2": st.column_config.SelectboxColumn(options=assets),
             "Yıllık getiri %": st.column_config.NumberColumn(format="%.1f", step=1.0, required=True),
         },
-        key="bl_views",
+        key=f"bl_views_{st.session_state.bl_version}",
     )
+    st.session_state.bl_current = views_df.astype(object).where(views_df.notna(), None).to_dict("records")
     tau = st.slider("Görüşlere güven (tau)", 0.01, 0.5, 0.05, 0.01, help="Büyüdükçe görüşleriniz daha ağır basar.")
 
     views: list[str] = []

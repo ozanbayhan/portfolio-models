@@ -32,6 +32,26 @@ uv run streamlit run app.py
 
 Tarayıcıda açılır. Sembolleri ve modelleri seçin; ağırlıkları, backtest sonuçlarını, Black-Litterman görüşlerini ve korelasyonları sekmelerde görün.
 
+### Giriş ve portföy kaydetme
+
+Kullanıcılar Google hesaplarıyla giriş yapıp ayarlarını adlandırarak kaydedebilir. Kaydedilenler semboller, tarihler, modeller, backtest ayarları ve Black-Litterman görüşleri. Her kullanıcı **yalnızca kendi kayıtlarını** görür, yükler ve siler; bu kontrol sunucu tarafında, e-postaya göre yapılır. Uygulama girişsiz de kullanılabilir, ama kayıt için giriş gerekir.
+
+Sunucuda bu özelliği açmak için Streamlit Cloud → **Manage app → Settings → Secrets** alanına şunları girin:
+
+```toml
+[auth]
+redirect_uri = "https://portfolio-models.streamlit.app/oauth2callback"
+cookie_secret = "<rastgele uzun bir metin: python -c 'import secrets; print(secrets.token_hex(32))'>"
+client_id = "<Google OAuth istemci kimliği>"
+client_secret = "<Google OAuth istemci gizli anahtarı>"
+server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
+
+[connections.portfolios]
+url = "postgresql+psycopg://<Supabase session pooler bağlantı adresi>"
+```
+
+Ayarlar yapılmazsa kayıt özelliği kapalı kalır, uygulamanın geri kalanı çalışmaya devam eder. Yerelde girişsiz denemek için `.streamlit/secrets.toml` dosyasına `local_mode = true` yazın; kayıtlar `portfolios.db` dosyasına yazılır.
+
 ## Komut satırı
 
 ```bash
