@@ -18,6 +18,7 @@ from portfolio_models.fund_prices import (
     merge_history,
     parse_fund_file,
 )
+from portfolio_models.trades_io import export_csv, merge_trades, parse_trades_file, template_csv
 from portfolio_models.holdings import (
     COLUMNS,
     KIND_BIST,
@@ -211,6 +212,43 @@ def _transactions_tab(summary) -> None:
         "ve varlığın kendi para birimindedir (BIST ve fonlar TL, gram altın TL/gram, AAPL $). Dövizli işlemler "
         "işlem günündeki kurla TL'ye çevrilir."
     )
+    show = ss.pop("txn_flash", None)
+    if show:
+        getattr(st, show[0])(show[1])
+    with st.expander("📥 Dosyadan içe aktar / 📤 dışa aktar"):
+        st.caption(
+            "Aracı kurum ekstresi ya da kendi tablonuz (CSV/Excel). Tarih, işlem yönü (Al/Alış/Buy — Sat/Satış/Sell), "
+            "sembol, adet ve fiyat sütunları otomatik tanınır; tür sütunu yoksa aşağıda seçtiğiniz tür kullanılır. "
+            "Aynı işlem iki kez eklenmez."
+        )
+        c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+        up = c1.file_uploader("İşlem dosyası", type=["csv", "xlsx", "xls"], key=f"txn_up_{ss.txn_up_ver}",
+                              label_visibility="collapsed")
+        default_kind = c2.selectbox("Tür sütunu yoksa", TXN_KINDS, key="txn_default_kind")
+        if up is not None and st.button("İşlemleri içe aktar", type="primary"):
+            try:
+                new_rows, warns = parse_trades_file(up.getvalue(), up.name, default_kind)
+            except Exception as exc:  # noqa: BLE001
+                ss.txn_flash = ("error", f"Dosya okunamadı: {exc}")
+            else:
+                current = ss.get("txn_current", ss.hold_txns)
+                merged, skipped = merge_trades(current, new_rows)
+                added = len(merged) - len(current)
+                ss.hold_rows = ss.get("hold_current", ss.hold_rows)  # pozisyon tablosundaki düzenlemeler korunur
+                ss.hold_txns = merged
+                ss.hold_version += 1
+                msg = f"{added} işlem eklendi." + (f" {skipped} tekrar eden işlem atlandı." if skipped else "")
+                if warns:
+                    msg += " " + " ".join(warns[:5]) + (f" (+{len(warns) - 5} uyarı)" if len(warns) > 5 else "")
+                ss.txn_flash = ("success" if added else "warning",
+                                msg + (" Kalıcı olması için Kaydet'e basın." if added else ""))
+            ss.txn_up_ver += 1
+            st.rerun()
+        d1, d2, _ = st.columns([1, 1, 2])
+        d1.download_button("Şablonu indir", template_csv(), "islem_sablonu.csv", "text/csv",
+                           help="Örnek satırlı, Excel'de açılabilen CSV şablonu.")
+        d2.download_button("İşlemleri indir", export_csv(ss.get("txn_current", ss.hold_txns)), "islemlerim.csv",
+                           "text/csv", disabled=not ss.get("txn_current", ss.hold_txns))
     edited = st.data_editor(
         _txn_frame(ss.hold_txns),
         num_rows="dynamic", width="stretch", hide_index=True,
@@ -335,7 +373,8 @@ def _funds_tab(engine, email, fund_codes: list[str]) -> None:
 
 def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     ss = st.session_state
-    for k, v in (("hold_version", 0), ("hold_name", DEFAULT_NAME), ("fund_up_ver", 0), ("fund_ed_ver", 0)):
+    for k, v in (("hold_version", 0), ("hold_name", DEFAULT_NAME), ("fund_up_ver", 0), ("fund_ed_ver", 0),
+                 ("txn_up_ver", 0)):
         ss.setdefault(k, v)
 
     st.title("💼 Portföyüm")
@@ -395,10 +434,8 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     # --- Girdi sekmeleri (işlem özeti için işlemler önce okunur)
     trades, t_warn = parse_trades(ss.get("txn_current", ss.hold_txns))
     summary, a_warn = aggregate_trades(trades)
-    n_txn = len(trades)
-    tab_pos, tab_txn, tab_fund = st.tabs(
-        ["📋 Pozisyonlar", f"🧾 İşlemler ({n_txn})" if n_txn else "🧾 İşlemler", "📈 Fon fiyatları"]
-    )
+    # Sekme başlıkları sabit kalmalı: başlık değişirse Streamlit seçili sekmeyi ilk sekmeye sıfırlar
+    tab_pos, tab_txn, tab_fund = st.tabs(["📋 Pozisyonlar", "🧾 İşlemler", "📈 Fon fiyatları"])
     with tab_pos:
         _positions_tab()
         st.button("Tüm tabloları temizle", on_click=_on_new, help="Pozisyonları ve işlemleri boşaltır.")
@@ -614,5 +651,5 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
             st.caption(f"İşlemler sonrası kalan nakit: {_fmt_tl(cash_after)} (TL karşılığı).")
     turnover = float(reb["Tutar (TL)"].sum())
     if total and not math.isnan(turnover):
-        st.caption(f"Toplam işlem hacmi: {_fmt_tl(turnover)} (portföyün %{turnover / total * 100:.0f}'i). "
+        st.caption(f"Toplam işlem hacmi: {_fmt_tl(turnover)} — portföy değerine oranı %{turnover / total * 100:.0f}. "
                    "Komisyon ve vergiler dahil değildir.")

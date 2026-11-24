@@ -1,0 +1,56 @@
+import pandas as pd
+import pytest
+
+from portfolio_models.holdings import KIND_BIST, KIND_FUND, KIND_GOLD, KIND_YAHOO, aggregate_trades, parse_trades
+from portfolio_models.trades_io import export_csv, merge_trades, parse_trades_file, template_csv
+
+
+def test_template_roundtrip():
+    rows, warns = parse_trades_file(template_csv(), "sablon.csv")
+    assert warns == [] and len(rows) == 5
+    assert rows[0] == {"Tarih": "2025-01-15", "İşlem": "Al", "Tür": KIND_BIST, "Sembol": "THYAO",
+                       "Adet": 100.0, "Fiyat": 290.5}
+    assert rows[3]["Tür"] == KIND_GOLD and rows[3]["Sembol"] == ""
+    trades, tw = parse_trades(rows)
+    assert tw == [] and len(trades) == 5
+    # dışa aktar -> tekrar içe aktar aynı sonucu verir
+    again, _ = parse_trades_file(export_csv(rows), "export.csv")
+    assert again == rows
+
+
+def test_broker_style_statement():
+    csv = (
+        "İşlem Tarihi;Menkul;İşlem Tipi;Miktar;Ortalama Fiyat;Tutar;Komisyon\n"
+        "05.01.2026;THYAO;Alış;100;298,40;29.840,00;5,97\n"
+        "06.01.2026;ASELS;ALIŞ;50;121,10;6.055,00;1,21\n"
+        "20.02.2026;THYAO;Satış;40;331,00;13.240,00;2,65\n"
+        "toplam;;;;;49.135,00;\n"
+    ).encode("cp1254")
+    rows, warns = parse_trades_file(csv, "ekstre.csv")
+    assert [(r["Sembol"], r["İşlem"], r["Adet"], r["Fiyat"]) for r in rows] == [
+        ("THYAO", "Al", 100, 298.4), ("ASELS", "Al", 50, 121.1), ("THYAO", "Sat", 40, 331.0)]
+    assert all(r["Tür"] == KIND_BIST for r in rows)
+    assert len(warns) == 1  # toplam satırı
+    summ, _ = aggregate_trades(parse_trades(rows)[0])
+    assert summ["THYAO"].qty == 60
+
+
+def test_english_excel_with_kind_column(tmp_path):
+    pd.DataFrame({
+        "Date": ["2026-01-05", "2026-01-06"], "Side": ["BUY", "SELL"], "Ticker": ["aapl", "AAPL"],
+        "Quantity": [3, 1], "Price": [210.5, 220], "Asset type": ["ETF", "Yahoo"],
+    }).to_excel(tmp_path / "t.xlsx", index=False)
+    rows, warns = parse_trades_file((tmp_path / "t.xlsx").read_bytes(), "t.xlsx", default_kind=KIND_FUND)
+    assert warns == []
+    assert [(r["Tür"], r["Sembol"], r["İşlem"]) for r in rows] == [(KIND_YAHOO, "AAPL", "Al"), (KIND_YAHOO, "AAPL", "Sat")]
+
+
+def test_missing_columns_message():
+    with pytest.raises(ValueError, match="İşlem"):
+        parse_trades_file(b"Tarih;Sembol;Adet;Fiyat\n01.01.2026;X;1;1\n", "x.csv")
+
+
+def test_merge_skips_duplicates():
+    rows, _ = parse_trades_file(template_csv(), "s.csv")
+    merged, skipped = merge_trades(rows[:3], rows)
+    assert len(merged) == 5 and skipped == 3

@@ -39,13 +39,15 @@ Uygulamanın **Portföyüm** sayfasında varlıklarınızı girip takip edebilir
 | Sekme | Ne girersiniz | Ne elde edersiniz |
 |---|---|---|
 | 📋 **Pozisyonlar** | Şu an elinizde olanlar: tür, sembol, miktar, isteğe bağlı ortalama maliyet | Hızlı başlangıç |
-| 🧾 **İşlemler** | Her alım/satım: tarih, Al/Sat, sembol, adet, birim fiyat | Miktar ve ortalama maliyet otomatik hesaplanır. Gerçekleşen K/Z, yıllık getiri (XIRR) ve o tarihlerde gerçekten elde olanlarla değer grafiği |
+| 🧾 **İşlemler** | Her alım/satım: tarih, Al/Sat, sembol, adet, birim fiyat; elle ya da **CSV/Excel'den toplu** (aracı kurum ekstresi veya şablon) | Miktar ve ortalama maliyet otomatik hesaplanır. Gerçekleşen K/Z, yıllık getiri (XIRR) ve o tarihlerde gerçekten elde olanlarla değer grafiği |
 | 📈 **Fon fiyatları** | TEFAS'tan indirilen CSV/Excel dosyası ya da tarih–fiyat tablosu (elle) | Fonlar değer grafiğine, günlük değişime ve yeniden dengelemeye katılır |
 
 - **Desteklenen varlıklar:** BIST hisseleri, TEFAS fonları, Yahoo Finance'teki her sembol (ABD hisseleri, ETF'ler, kripto…), gram altın ve nakit (TRY, USD, EUR…).
 - **TL değerleme:** Döviz cinsinden varlıklar güncel kurla, işlemler ise işlem günündeki kurla TL'ye çevrilir.
 - **Yeniden dengeleme:** Seçtiğiniz modele göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır; öneri hiçbir zaman eksi nakde düşürmez.
 - **Kayıt:** Giriş yaptıysanız pozisyonlar ve işlemler adlandırılarak, fon fiyatları da hesabınıza kaydedilir. Bunları yalnızca siz görürsünüz.
+
+**İşlem dosyası içe aktarma:** *İşlemler → Dosyadan içe aktar* bölümünden şablonu indirebilir ya da aracı kurum ekstrenizi yükleyebilirsiniz. Tarih, işlem yönü (Al/Alış/Buy, Sat/Satış/Sell), sembol, adet ve fiyat sütunları farklı adlarla da tanınır. Aynı işlem iki kez eklenmez. İşlemleri CSV olarak dışa da aktarabilirsiniz.
 
 **TEFAS fonları:** TEFAS otomatik veri erişimini engellediği için fiyatlar sizden gelir. [tefas.gov.tr → Fon Verileri](https://www.tefas.gov.tr/tr/fon-verileri) sayfasından fonu ve tarih aralığını seçip **Excel** ya da **CSV** indirin ve *Fon fiyatları* sekmesinden yükleyin. Dosya okuyucu sütun adlarını ve Türkçe sayı biçimlerini (`2,512345`, `1.234,56`) otomatik tanır. Alternatif olarak tek bir güncel fiyatı pozisyon tablosuna yazabilirsiniz. Fiyat kaynağı önceliği şöyledir: elle girilen güncel fiyat, sonra yüklenen veya elle girilen geçmiş, sonra işlemdeki son fiyat.
 
