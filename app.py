@@ -24,6 +24,56 @@ from portfolio_models import store
 
 st.set_page_config(page_title="Portföy Modelleri", page_icon="📊", layout="wide")
 
+PRIVACY = """
+# Gizlilik Politikası
+
+*Son güncelleme: 24 Kasım 2026*
+
+**Portföy Modelleri** ([portfolio-models.streamlit.app](https://portfolio-models.streamlit.app)) açık kaynaklı,
+ücretsiz bir portföy analiz aracıdır. Kaynak kodu: [github.com/ozanbayhan/portfolio-models](https://github.com/ozanbayhan/portfolio-models).
+
+### Hangi verileri topluyoruz?
+- **Girişsiz kullanımda:** hiçbir kişisel veri saklanmaz. Girdiğiniz semboller ve yüklediğiniz dosyalar yalnızca oturumunuz süresince sunucu belleğinde tutulur.
+- **Google ile giriş yaptığınızda:** Google'dan yalnızca e-posta adresiniz ve adınız alınır (`openid`, `email`, `profile`). Google hesabınızdaki başka hiçbir veriye erişilmez.
+- **Portföy kaydettiğinizde:** e-posta adresiniz ile kaydettiğiniz ayarlar (semboller, tarihler, model seçimleri, görüşler) bir veritabanında saklanır.
+
+### Verileri nasıl kullanıyoruz?
+Yalnızca kayıtlı portföylerinizi size göstermek için. Veriler satılmaz, paylaşılmaz, reklam veya analiz için kullanılmaz.
+Her kullanıcı yalnızca kendi kayıtlarını görebilir.
+
+### Nerede saklanıyor?
+Supabase (PostgreSQL) üzerinde, AB bölgesinde. Uygulama Streamlit Community Cloud'da çalışır.
+
+### Verilerinizi silme
+Kayıtlı portföylerinizi uygulamadaki **Sil** butonuyla istediğiniz an silebilirsiniz. Tüm verilerinizin silinmesi için
+[GitHub Issues](https://github.com/ozanbayhan/portfolio-models/issues) üzerinden talepte bulunabilirsiniz.
+
+### Google API kullanımı
+Bu uygulamanın Google API'lerinden aldığı bilgileri kullanımı, Limited Use gereklilikleri dahil olmak üzere
+[Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy)'ye uygundur.
+"""
+
+TERMS = """
+# Kullanım Koşulları
+
+*Son güncelleme: 24 Kasım 2026*
+
+- Portföy Modelleri **eğitim ve araştırma amaçlı**, ücretsiz ve açık kaynaklı bir araçtır. **Yatırım tavsiyesi değildir.**
+- Sonuçlar geçmiş verilere dayanır; geçmiş performans gelecekteki sonuçları garanti etmez.
+- Piyasa verileri Yahoo Finance'ten alınır; doğruluğu ve sürekliliği garanti edilmez.
+- Araç "olduğu gibi" sunulur; kullanımından doğan kayıplardan geliştirici sorumlu tutulamaz.
+- Hizmet önceden haber verilmeksizin değiştirilebilir veya durdurulabilir.
+- Gizlilik ile ilgili ayrıntılar için [Gizlilik Politikası](?page=privacy).
+
+Kaynak kodu MIT lisansıyla: [github.com/ozanbayhan/portfolio-models](https://github.com/ozanbayhan/portfolio-models)
+"""
+
+_page = st.query_params.get("page")
+if _page in ("privacy", "terms"):
+    st.markdown(PRIVACY if _page == "privacy" else TERMS)
+    st.markdown("[← Uygulamaya dön](/)")
+    st.stop()
+
 MODEL_DESC = dict(list_models())
 DEFAULT_MODELS = ["equal_weighted", "inverse_volatility", "min_variance", "max_sharpe", "risk_parity", "hrp", "min_cvar"]
 PCT_COLS = ["Yıllık getiri", "Yıllık volatilite", "Maks. düşüş", "CVaR %95"]
@@ -245,7 +295,8 @@ with st.sidebar:
 st.title("📊 Portföy Modelleri")
 st.caption(
     "skfolio · Riskfolio-Lib · PyPortfolioOpt — "
-    "[GitHub](https://github.com/ozanbayhan/portfolio-models) · Eğitim amaçlıdır, yatırım tavsiyesi değildir."
+    "[GitHub](https://github.com/ozanbayhan/portfolio-models) · [Gizlilik](?page=privacy) · [Koşullar](?page=terms) · "
+    "Eğitim amaçlıdır, yatırım tavsiyesi değildir."
 )
 
 try:
