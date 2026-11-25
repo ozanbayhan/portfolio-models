@@ -7,3 +7,7 @@ portfolios.db
 results/
 docs/site/
 *.log
+site/
+docs/
+*.md
+!README.md
