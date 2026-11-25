@@ -18,7 +18,7 @@ track your real portfolio with transactions and dividends, and read plain-langua
 
 [**Try the live demo →**](https://portfolio-models.streamlit.app) &nbsp;·&nbsp; [Documentation](https://ozanbayhan.github.io/portfolio-models) &nbsp;·&nbsp; [Self-hosting](#-self-hosting)
 
-<img src="docs/assets/frontier.jpg" alt="Efficient frontier, risk contribution and automatic commentary" width="900">
+<img src="docs/assets/demo.gif" alt="Demo: sample portfolio, benchmarks vs inflation, 24 models, efficient frontier, commentary and backtest" width="900">
 
 </div>
 
@@ -104,6 +104,8 @@ docker compose up -d            # single user, SQLite in a volume
 | <img src="docs/assets/analysis.jpg" alt="Model analysis"> | <img src="docs/assets/portfolio.jpg" alt="Portfolio tracker"> |
 | **Holdings, allocation & value over time** | **Benchmarks & inflation** |
 | <img src="docs/assets/holdings.jpg" alt="Holdings"> | <img src="docs/assets/comparison.jpg" alt="Comparison"> |
+| **Efficient frontier, risk contribution & commentary** | |
+| <img src="docs/assets/frontier.jpg" alt="Efficient frontier"> | |
 
 ## 🧮 Models
 

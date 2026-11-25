@@ -17,7 +17,7 @@ Ergebnis einen verständlichen Kommentar.
 
 [**Live-Demo ausprobieren →**](https://portfolio-models.streamlit.app?lang=de) &nbsp;·&nbsp; [Dokumentation](https://ozanbayhan.github.io/portfolio-models) &nbsp;·&nbsp; [Selbst hosten](#-selbst-hosten)
 
-<img src="docs/assets/frontier.jpg" alt="Effiziente Grenze, Risikobeitrag und automatische Kommentare" width="900">
+<img src="docs/assets/demo.gif" alt="Demo: Beispielportfolio, Vergleich mit Inflation, 24 Modelle, effiziente Grenze, Kommentare und Backtest" width="900">
 
 </div>
 

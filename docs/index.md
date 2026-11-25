@@ -10,7 +10,7 @@ in English, Türkçe or Deutsch.
 [Install it](getting-started.md){ .md-button }
 [GitHub](https://github.com/ozanbayhan/portfolio-models){ .md-button }
 
-![Efficient frontier, risk contribution and commentary](assets/frontier.jpg)
+![Demo](assets/demo.gif)
 
 ## What you can do
 

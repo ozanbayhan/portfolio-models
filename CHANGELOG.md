@@ -5,6 +5,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-11-25
+
+### Fixed
+- Docker image build (README and LICENSE are now copied into the build stage); `ghcr.io/ozanbayhan/portfolio-models:0.2.1`
+  is the first published versioned image.
+- Benchmark table showed "None" for missing values; now shows "—".
+- Default portfolio name is translated (was always Turkish).
+
+### Added
+- Demo GIF in the README and docs.
+
 ## [0.2.0] — 2026-11-25
 
 ### Added
@@ -32,5 +43,6 @@ All notable changes to this project are documented here. The format follows
 - 24 portfolio models on skfolio, Riskfolio-Lib and PyPortfolioOpt behind one interface.
 - Walk-forward backtests, CLI (`list`, `weights`, `backtest`), Streamlit UI, CI.
 
-[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ozanbayhan/portfolio-models/releases/tag/v0.2.0

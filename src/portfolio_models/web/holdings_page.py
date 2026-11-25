@@ -216,7 +216,7 @@ def _on_delete(engine, email):
 
 
 def _on_new():
-    _set_data([], [], DEFAULT_NAME)
+    _set_data([], [], t(DEFAULT_NAME))
     st.session_state.hold_pick = None
 
 
@@ -300,12 +300,11 @@ def _comparison(port_vals: pd.Series, inflows: pd.Series | None, years: int) -> 
         for col in ("Başlangıç", "Bitiş"):
             s[col] = [pd.Timestamp(v).strftime("%d.%m.%Y") for v in s[col]]
         s["Seri"] = s["Seri"].map(t)
+        for col in ("Toplam getiri", "Yıllık", "Reel (TÜFE'ye göre)"):
+            # Streamlit, Styler'ın na_rep'ini her zaman uygulamıyor; boşları metin olarak "—" yap.
+            s[col] = [f"{v:+.1%}" if pd.notna(v) else "—" for v in s[col]]
         s = s.rename(columns=t)
-        st.dataframe(
-            s.style.format({t("Toplam getiri"): "{:+.1%}", t("Yıllık"): "{:+.1%}",
-                            t("Reel (TÜFE'ye göre)"): "{:+.1%}"}, na_rep="—"),
-            hide_index=True, width="stretch",
-        )
+        st.dataframe(s, hide_index=True, width="stretch")
     notes = [t("Portföy getirisi zaman ağırlıklıdır (TWR): para yatırma/çekme ve alımların etkisi ayıklanır.")]
     if not cpi.empty:
         notes.append(t("TÜFE: {src}, {month} ayına kadar; sonrası için reel getiri hesaplanmaz.",
@@ -541,7 +540,7 @@ def _funds_tab(engine, email, fund_codes: list[str]) -> None:
 
 def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     ss = st.session_state
-    for k, v in (("hold_version", 0), ("hold_name", DEFAULT_NAME), ("fund_up_ver", 0), ("fund_ed_ver", 0),
+    for k, v in (("hold_version", 0), ("hold_name", t(DEFAULT_NAME)), ("fund_up_ver", 0), ("fund_ed_ver", 0),
                  ("txn_up_ver", 0)):
         ss.setdefault(k, v)
 
@@ -557,7 +556,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
 
     # İlk açılış: kullanıcının en son portföyü ve fon fiyat geçmişi
     if "hold_rows" not in ss:
-        rows, txns, name = EXAMPLE_ROWS, [], DEFAULT_NAME
+        rows, txns, name = EXAMPLE_ROWS, [], t(DEFAULT_NAME)
         if engine is not None:
             try:
                 saved = store.list_portfolios(engine, email, kind="holdings")

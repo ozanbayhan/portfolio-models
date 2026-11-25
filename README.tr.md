@@ -16,7 +16,7 @@ backtest yapın, gerçek portföyünüzü işlem ve temettüleriyle takip edin; 
 
 [**Canlı demoyu deneyin →**](https://portfolio-models.streamlit.app) &nbsp;·&nbsp; [Dokümantasyon](https://ozanbayhan.github.io/portfolio-models) &nbsp;·&nbsp; [Kendi sunucunuza kurun](#-kendi-sunucunuza-kurun)
 
-<img src="docs/assets/frontier.jpg" alt="Etkin sınır, risk katkısı ve otomatik yorumlar" width="900">
+<img src="docs/assets/demo.gif" alt="Demo: örnek portföy, enflasyona karşı karşılaştırma, 24 model, etkin sınır, yorumlar ve backtest" width="900">
 
 </div>
 
