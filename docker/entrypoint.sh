@@ -3,6 +3,7 @@
 #   serve   — web arayüzü (varsayılan)
 #   report  — haftalık e-posta özetlerini bir kez gönder
 #   weekly  — her pazartesi 06:00 UTC'de report çalıştıran zamanlayıcı
+#   mcp     — yapay zekâ asistanları için MCP sunucusu (stdio; --http ile HTTP)
 set -eu
 
 SECRETS=/app/.streamlit/secrets.toml
@@ -45,6 +46,9 @@ case "$cmd" in
   report)
     export DB_URL="${PM_DATABASE_URL:-sqlite:///${PM_DATA_DIR:-/data}/portfolios.db}"
     exec portfolio-models report "$@"
+    ;;
+  mcp)
+    exec portfolio-models mcp --data-dir "${PM_DATA_DIR:-/data}" "$@"
     ;;
   weekly)
     export DB_URL="${PM_DATABASE_URL:-sqlite:///${PM_DATA_DIR:-/data}/portfolios.db}"

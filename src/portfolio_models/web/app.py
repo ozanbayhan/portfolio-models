@@ -468,9 +468,9 @@ def analysis_page() -> None:
                           label_visibility="collapsed", key="source")
         if source == SOURCE_YAHOO:
             bist_text = st.text_input(t("BIST hisseleri"), key="bist_text",
-                                      help=t("Boşlukla ayırın; .IS eki otomatik eklenir."))
-            other_text = st.text_input(t("Diğer semboller"), key="other_text",
-                                       help=t("Yahoo sembolleri: GC=F (altın), USDTRY=X, BTC-USD, AAPL…"))
+                                      help=t("Borsa İstanbul kodları, boşlukla ayırın (THYAO, ASELS, BIMAS…); .IS eki otomatik eklenir."))
+            other_text = st.text_input(t("ABD/global hisse, ETF, kripto…"), key="other_text",
+                                       help=t("Yahoo Finance sembolleri: hisse ve ETF (AAPL, VOO, QQQ, IWDA.AS), altın GC=F, döviz USDTRY=X, kripto BTC-USD…"))
             c1, c2 = st.columns(2)
             start = c1.date_input(t("Başlangıç"), key="start", min_value=date(2000, 1, 1))
             end = c2.date_input(t("Bitiş"), key="end")
@@ -747,6 +747,7 @@ def analysis_page() -> None:
 # --- Sayfalar ----------------------------------------------------------------
 
 from portfolio_models.web.holdings_page import holdings_page  # noqa: E402
+from portfolio_models.web.model_portfolios_page import model_portfolios_page  # noqa: E402
 
 with st.sidebar:
     language_box()
@@ -757,6 +758,8 @@ pg = st.navigation(
         st.Page(analysis_page, title=t("Model analizi"), icon="📊", url_path="analiz", default=True),
         st.Page(lambda: holdings_page(user_store, show_flash, model_desc()), title=t("Portföyüm"), icon="💼",
                 url_path="portfoyum"),
+        st.Page(lambda: model_portfolios_page(user_store, show_flash), title=t("Model portföyler"), icon="🏛️",
+                url_path="model-portfoyler"),
     ]
 )
 pg.run()

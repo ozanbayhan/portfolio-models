@@ -83,6 +83,13 @@ def main(argv: list[str] | None = None) -> None:
     rp.add_argument("--dry-run", action="store_true", help="Göndermeden yalnızca hesapla")
     rp.add_argument("--out", help="E-posta HTML'lerini bu klasöre de yaz")
 
+    mc = sub.add_parser("mcp", help="Yapay zekâ asistanları için MCP sunucusu (Claude, ChatGPT, Cursor …)")
+    mc.add_argument("--http", action="store_true", help="stdio yerine Streamable HTTP (http://HOST:PORT/mcp)")
+    mc.add_argument("--host", default="127.0.0.1")
+    mc.add_argument("--port", type=int, default=8765)
+    mc.add_argument("--data-dir", default=None, help="Web arayüzüyle aynı klasör (varsayılan ~/.portfolio-models)")
+    mc.add_argument("--read-only", action="store_true", help="Portföyü değiştiren araçları sunma")
+
     w = sub.add_parser("weights", help="Güncel veriyle her modelin ağırlıklarını hesapla")
     _add_data_args(w)
 
@@ -97,6 +104,15 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.cmd == "serve":
         serve(args)
+        return
+    if args.cmd == "mcp":
+        if args.data_dir:
+            os.environ["PM_DATA_DIR"] = str(Path(args.data_dir).expanduser())
+        if args.read_only:
+            os.environ["PM_MCP_READ_ONLY"] = "1"
+        from .mcp_server import run as run_mcp
+
+        run_mcp(http=args.http, host=args.host, port=args.port)
         return
     if args.cmd == "report":
         from .report import main as report_main

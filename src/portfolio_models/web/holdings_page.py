@@ -347,7 +347,7 @@ def _positions_tab() -> None:
     ss = st.session_state
     st.caption(t(
         "Şu an elinizde olanlar (tarihsiz). **BIST hissesi:** THYAO · **TEFAS fonu:** fon kodu (TTE, AFT…) — fiyatı "
-        "**Güncel fiyat** sütununa ya da *Fon fiyatları* sekmesine girin · **Yahoo sembolü:** AAPL, BTC-USD, VOO… · "
+        "**Güncel fiyat** sütununa ya da *Fon fiyatları* sekmesine girin · **Yahoo sembolü** (ABD/global hisse, ETF, kripto): AAPL, VOO, QQQ, BTC-USD… · "
         "**Gram altın:** sembol boş · **Nakit:** TRY, USD, EUR… · **Ort. maliyet** isteğe bağlı, varlığın kendi para "
         "biriminde (AAPL için $). İşlem geçmişi girdiğiniz varlıkları burada tekrar yazmayın; ikisi toplanır."
     ))

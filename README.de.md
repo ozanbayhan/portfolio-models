@@ -91,6 +91,18 @@ docker compose up -d            # Einzelbenutzer, SQLite im Volume
 👉 Ausführliche Anleitung (Reverse Proxy, Google OAuth, Supabase, Backups, Updates, auf Englisch):
 **[docs/self-hosting.md](docs/self-hosting.md)**
 
+## 🤖 KI-Assistenten verbinden (MCP)
+
+Fragen Sie Claude, ChatGPT, Cursor oder einen anderen MCP-Client in normaler Sprache nach Ihrem Portfolio: *„Was ist
+mein Portfolio heute wert?"*, *„Füge 20 VOO zu 610 $ hinzu"*. Der eingebaute MCP-Server nutzt dieselbe Datenbank wie
+die Web-App und läuft auf Ihrem Rechner.
+
+```bash
+claude mcp add portfolio-models -- uvx --from git+https://github.com/ozanbayhan/portfolio-models portfolio-models mcp
+```
+
+Einrichtung für Claude Desktop, Cursor, VS Code, Docker und HTTP: **[Anleitung (englisch)](https://ozanbayhan.github.io/portfolio-models/ai-assistants/)**.
+
 ## 📸 Screenshots
 
 | Modellanalyse | Portfolio-Tracker |

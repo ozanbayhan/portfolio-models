@@ -96,6 +96,25 @@ docker compose up -d            # tek kullanıcı, SQLite (volume içinde)
 | <img src="docs/assets/analysis.jpg" alt="Model analizi"> | <img src="docs/assets/portfolio.jpg" alt="Portföy takibi"> |
 | <img src="docs/assets/holdings.jpg" alt="Pozisyonlar"> | <img src="docs/assets/comparison.jpg" alt="Karşılaştırma"> |
 
+## 🏛️ Model portföyler
+
+Aracı kurum, banka ve portföy yönetim şirketlerinin yayımladığı model portföyleri, hangi ülkeden olursa olsun, yan
+yana ve gün sonu fiyatlarıyla izleyin. Her güncelleme tarihli bir revizyon olarak saklanır. Kayıtları elle
+girebilir ya da yapay zekâ asistanınıza güncelletebilirsiniz.
+[Ayrıntılar](https://ozanbayhan.github.io/portfolio-models/model-portfolios/)
+
+## 🤖 Yapay zekâ asistanını bağlayın (MCP)
+
+Claude, ChatGPT, Cursor ya da başka bir MCP istemcisine portföyünüzü sade Türkçe ile sorun: *"portföyüm bugün ne
+kadar?"*, *"portföye 610 dolardan 20 VOO ekle"*, *"THYAO, ASELS, VOO için HRP ile min. varyansı karşılaştır"*.
+Yerleşik MCP sunucusu web arayüzüyle aynı veritabanını kullanır ve sizin bilgisayarınızda çalışır.
+
+```bash
+claude mcp add portfolio-models -- uvx --from git+https://github.com/ozanbayhan/portfolio-models portfolio-models mcp
+```
+
+Claude Desktop, Cursor, VS Code, Docker ve HTTP kurulumu: **[Yapay zekâ asistanları rehberi](https://ozanbayhan.github.io/portfolio-models/ai-assistants/)**.
+
 ## 🧑‍💻 Python kütüphanesi ve komut satırı
 
 ```bash

@@ -47,7 +47,7 @@ and inflation-adjusted comparisons against BIST100, USD and gold.
 | 📚 **Model guide** | History (who, when, paper), core idea, how to read the results, strengths and cautions for every model, plus a metrics glossary |
 | 🎯 **Black-Litterman with your views** | Enter absolute or relative views and see exactly how they move the weights |
 | 🔒 **Weight limits** | Cap any single asset (e.g. max 25%) across all models that support constraints |
-| 💼 **Portfolio tracker** | Positions, dated buy/sell, dividends, deposits/withdrawals, average cost, realised & open P/L |
+| 💼 **Portfolio tracker** | BIST stocks & ETFs, US/global stocks & ETFs, TEFAS funds, gold, crypto, cash — positions, dated buy/sell, dividends, deposits/withdrawals, average cost, realised & open P/L |
 | 📥 **Broker statement import** | CSV/Excel import that recognises Turkish, English and German column names and values; duplicate-safe |
 | 🏦 **TEFAS funds** | Upload price history from TEFAS exports or type it in; funds join charts and rebalancing |
 | ⚖️ **Rebalancing suggestions** | Exact buy/sell quantities to reach any model's target, whole shares for BIST, never overdrawing cash |
@@ -55,6 +55,8 @@ and inflation-adjusted comparisons against BIST100, USD and gold.
 | 📧 **Weekly email summary** | Opt-in Monday digest of value, weekly change and stale fund prices |
 | 🌐 **Three languages** | Türkçe, English, Deutsch — UI, commentary, model guide and emails |
 | 👥 **Multi-user or single-user** | Google sign-in with per-user isolation, or zero-config local mode |
+| 🏛️ **Model portfolios** | Track brokers' and banks' published model portfolios from any country side by side, with dated revisions and daily performance |
+| 🤖 **AI assistant (MCP)** | Connect Claude, ChatGPT or Cursor: ask about your portfolio, add trades, run optimisations in plain language |
 | 🐳 **Self-hosting** | One-line `uvx`, Docker image, Docker Compose with Postgres and email scheduler |
 
 ## 🚀 Quick start
@@ -129,6 +131,19 @@ docker compose up -d            # single user, SQLite in a volume
 | `riskfolio_*` · `pypfopt_*` | The same ideas from Riskfolio-Lib and PyPortfolioOpt, for cross-checking | — |
 
 Every model has a full entry in the in-app **📚 Models & guide** tab and in the [model guide](docs/models.md).
+
+## 🤖 Connect your AI assistant (MCP)
+
+Ask Claude, ChatGPT, Cursor or any MCP client about your portfolio in plain language — *"what's my portfolio worth
+today?"*, *"add 20 VOO at $610"*, *"compare HRP and min-variance for THYAO, ASELS, VOO since 2021"*. The built-in MCP
+server uses the same database as the web app and runs on your machine.
+
+```bash
+claude mcp add portfolio-models -- uvx --from git+https://github.com/ozanbayhan/portfolio-models portfolio-models mcp
+```
+
+Tools: portfolio valuation, add/remove positions and transactions, optimisation, backtests, prices and CPI for
+TR/US/DE. Setup for Claude Desktop, Cursor, VS Code, Docker and HTTP: **[AI assistants guide](https://ozanbayhan.github.io/portfolio-models/ai-assistants/)**.
 
 ## 🧑‍💻 Use it as a Python library or CLI
 

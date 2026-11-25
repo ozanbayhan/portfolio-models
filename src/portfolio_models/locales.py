@@ -80,11 +80,13 @@ CATALOG: dict[str, dict[str, str]] = {
     "Veri": E("Data", "Daten"),
     "Kaynak": E("Source", "Quelle"),
     "BIST hisseleri": E("BIST stocks", "BIST-Aktien"),
-    "Boşlukla ayırın; .IS eki otomatik eklenir.": E("Separate with spaces; the .IS suffix is added automatically.",
-                                                     "Mit Leerzeichen trennen; das Suffix .IS wird automatisch ergänzt."),
-    "Diğer semboller": E("Other symbols", "Weitere Symbole"),
-    "Yahoo sembolleri: GC=F (altın), USDTRY=X, BTC-USD, AAPL…": E(
-        "Yahoo symbols: GC=F (gold), USDTRY=X, BTC-USD, AAPL…", "Yahoo-Symbole: GC=F (Gold), USDTRY=X, BTC-USD, AAPL…"),
+    "Borsa İstanbul kodları, boşlukla ayırın (THYAO, ASELS, BIMAS…); .IS eki otomatik eklenir.": E(
+        "Borsa Istanbul codes separated by spaces (THYAO, ASELS, BIMAS…); the .IS suffix is added automatically.",
+        "Börse-Istanbul-Kürzel, mit Leerzeichen getrennt (THYAO, ASELS, BIMAS…); das Suffix .IS wird automatisch ergänzt."),
+    "ABD/global hisse, ETF, kripto…": E("US/global stocks, ETFs, crypto…", "US-/globale Aktien, ETFs, Krypto…"),
+    "Yahoo Finance sembolleri: hisse ve ETF (AAPL, VOO, QQQ, IWDA.AS), altın GC=F, döviz USDTRY=X, kripto BTC-USD…": E(
+        "Yahoo Finance symbols: stocks and ETFs (AAPL, VOO, QQQ, IWDA.AS), gold GC=F, FX USDTRY=X, crypto BTC-USD…",
+        "Yahoo-Finance-Symbole: Aktien und ETFs (AAPL, VOO, QQQ, IWDA.AS), Gold GC=F, Devisen USDTRY=X, Krypto BTC-USD…"),
     "Başlangıç": E("Start", "Beginn"),
     "Bitiş": E("End", "Ende"),
     "Fiyat dosyası (.csv)": E("Price file (.csv)", "Preisdatei (.csv)"),
@@ -366,9 +368,9 @@ CATALOG: dict[str, dict[str, str]] = {
     "📈 Fon fiyatları": E("📈 Fund prices", "📈 Fondspreise"),
     "Tüm tabloları temizle": E("Clear all tables", "Alle Tabellen leeren"),
     "Pozisyonları ve işlemleri boşaltır.": E("Empties positions and transactions.", "Leert Positionen und Transaktionen."),
-    "Şu an elinizde olanlar (tarihsiz). **BIST hissesi:** THYAO · **TEFAS fonu:** fon kodu (TTE, AFT…) — fiyatı **Güncel fiyat** sütununa ya da *Fon fiyatları* sekmesine girin · **Yahoo sembolü:** AAPL, BTC-USD, VOO… · **Gram altın:** sembol boş · **Nakit:** TRY, USD, EUR… · **Ort. maliyet** isteğe bağlı, varlığın kendi para biriminde (AAPL için $). İşlem geçmişi girdiğiniz varlıkları burada tekrar yazmayın; ikisi toplanır.": E(
-        "What you hold right now (undated). **BIST stock:** THYAO · **TEFAS fund:** fund code (TTE, AFT…) — enter its price in **Current price** or the *Fund prices* tab · **Yahoo symbol:** AAPL, BTC-USD, VOO… · **Gold (gram):** leave symbol empty · **Cash:** TRY, USD, EUR… · **Avg. cost** optional, in the asset's own currency ($ for AAPL). Don't repeat assets you entered as transactions; both are added together.",
-        "Was Sie aktuell halten (ohne Datum). **BIST-Aktie:** THYAO · **TEFAS-Fonds:** Fondscode (TTE, AFT…) — Preis in **Aktueller Preis** oder im Reiter *Fondspreise* eintragen · **Yahoo-Symbol:** AAPL, BTC-USD, VOO… · **Gold (Gramm):** Symbol leer lassen · **Cash:** TRY, USD, EUR… · **Ø Kosten** optional, in der Währung des Werts ($ bei AAPL). Werte, die Sie als Transaktionen erfasst haben, hier nicht erneut eintragen; beides wird addiert."),
+    "Şu an elinizde olanlar (tarihsiz). **BIST hissesi:** THYAO · **TEFAS fonu:** fon kodu (TTE, AFT…) — fiyatı **Güncel fiyat** sütununa ya da *Fon fiyatları* sekmesine girin · **Yahoo sembolü** (ABD/global hisse, ETF, kripto): AAPL, VOO, QQQ, BTC-USD… · **Gram altın:** sembol boş · **Nakit:** TRY, USD, EUR… · **Ort. maliyet** isteğe bağlı, varlığın kendi para biriminde (AAPL için $). İşlem geçmişi girdiğiniz varlıkları burada tekrar yazmayın; ikisi toplanır.": E(
+        "What you hold right now (undated). **BIST stock:** THYAO · **TEFAS fund:** fund code (TTE, AFT…) — enter its price in **Current price** or the *Fund prices* tab · **Yahoo symbol** (US/global stocks, ETFs, crypto): AAPL, VOO, QQQ, BTC-USD… · **Gold (gram):** leave symbol empty · **Cash:** TRY, USD, EUR… · **Avg. cost** optional, in the asset's own currency ($ for AAPL). Don't repeat assets you entered as transactions; both are added together.",
+        "Was Sie aktuell halten (ohne Datum). **BIST-Aktie:** THYAO · **TEFAS-Fonds:** Fondscode (TTE, AFT…) — Preis in **Aktueller Preis** oder im Reiter *Fondspreise* eintragen · **Yahoo-Symbol** (US-/globale Aktien, ETFs, Krypto): AAPL, VOO, QQQ, BTC-USD… · **Gold (Gramm):** Symbol leer lassen · **Cash:** TRY, USD, EUR… · **Ø Kosten** optional, in der Währung des Werts ($ bei AAPL). Werte, die Sie als Transaktionen erfasst haben, hier nicht erneut eintragen; beides wird addiert."),
     "Yalnızca TEFAS fonları için: güncel birim fiyat (TL). Fon fiyatları sekmesinde geçmiş yüklediyseniz boş bırakabilirsiniz.": E(
         "TEFAS funds only: current unit price (TRY). Leave empty if you uploaded a history in the Fund prices tab.",
         "Nur für TEFAS-Fonds: aktueller Anteilspreis (TRY). Leer lassen, wenn Sie im Reiter Fondspreise eine Historie hochgeladen haben."),
@@ -678,4 +680,71 @@ CATALOG: dict[str, dict[str, str]] = {
         "Lädt ein fertiges Beispiel mit Transaktionen, Dividenden und Cash-Verfolgung."),
     "🎯 Örnek portföyle dene": E("🎯 Try a sample portfolio", "🎯 Beispielportfolio ausprobieren"),
     "Varlık sayısı": E("Assets", "Werte"),
+    # --- Model portföyler ------------------------------------------------------------------------
+    "Model portföyler": E("Model portfolios", "Musterportfolios"),
+    "🏛️ Model portföyler": E("🏛️ Model portfolios", "🏛️ Musterportfolios"),
+    "Aracı kurum, banka ve portföy yönetim şirketlerinin yayımladığı model portföyleri gün sonu fiyatlarıyla karşılaştırın. Her güncelleme kendi tarihinde uygulanır. Eklemek ve güncellemek için yapay zekâ asistanınızı bağlayabilir ya da aşağıdaki formu kullanabilirsiniz.": E(
+        "Compare model portfolios published by brokers, banks and asset managers using end-of-day prices. Every update is applied on its own date. Connect your AI assistant to add and update them, or use the form below.",
+        "Vergleichen Sie Musterportfolios von Brokern, Banken und Vermögensverwaltern mit Schlusskursen. Jede Änderung wird zu ihrem eigenen Datum angewendet. Verbinden Sie Ihren KI-Assistenten zum Hinzufügen und Aktualisieren oder nutzen Sie das Formular unten."),
+    "Her ülkeden kurum": E("Firms from any country", "Anbieter aus jedem Land"),
+    "Tarihli revizyonlar": E("Dated revisions", "Datierte Revisionen"),
+    "Yapay zekâ ile güncelleme (MCP)": E("AI updates (MCP)", "Aktualisierung per KI (MCP)"),
+    "Henüz kayıtlı model portföy yok; **uydurma kurum adlarıyla örnekler** gösteriliyor. Kendi takip ettiğiniz kurumları aşağıdan ya da yapay zekâ asistanınızla ekleyin.": E(
+        "No model portfolios saved yet; showing **examples with made-up firm names**. Add the firms you follow below or with your AI assistant.",
+        "Noch keine Musterportfolios gespeichert; es werden **Beispiele mit erfundenen Anbieternamen** gezeigt. Fügen Sie die Anbieter, denen Sie folgen, unten oder mit Ihrem KI-Assistenten hinzu."),
+    "Karşılaştırılacak model portföyler": E("Model portfolios to compare", "Zu vergleichende Musterportfolios"),
+    "Kıyas serileri": E("Benchmarks", "Vergleichsreihen"),
+    "Grafik dönemi": E("Chart period", "Diagrammzeitraum"),
+    "En az bir model portföy seçin.": E("Select at least one model portfolio.", "Wählen Sie mindestens ein Musterportfolio."),
+    "Seçili model portföyler için fiyat bulunamadı.": E("No prices found for the selected model portfolios.",
+                                                       "Für die gewählten Musterportfolios wurden keine Kurse gefunden."),
+    "Dağılımlar ve geçmiş": E("Allocations and history", "Gewichtungen und Verlauf"),
+    "Son güncelleme: {d}": E("Last update: {d}", "Letzte Änderung: {d}"),
+    "{n} revizyon": E("{n} revision(s)", "{n} Revision(en)"),
+    "Ekle veya güncelle": E("Add or update", "Hinzufügen oder aktualisieren"),
+    "🤖 Yapay zekâ ile": E("🤖 With AI", "🤖 Mit KI"),
+    "✍️ Elle": E("✍️ Manually", "✍️ Manuell"),
+    "Claude, ChatGPT ya da Cursor'u bu uygulamaya **MCP** ile bağlayın ([kurulum]({docs})). Sonra örneğin şunu yazın:\n\n> *“Şu kurumun aylık model portföyünü kendi sitesinden bul ve kaydet: …”*\n\n> *“Kayıtlı model portföylerin kaynak sayfalarını kontrol et; değişen varsa yeni tarihle güncelle.”*\n\n> *“Model portföyleri dolar bazında karşılaştır; son 3 ayda en iyisi hangisi?”*\n\nAsistan ağırlıkları kurumun yayımladığı sayfadan okur, kaynağı ve tarihi kaydeder; tahmin etmez. Düzenli güncelleme için asistanınızın zamanlanmış görev özelliğini kullanabilirsiniz (ör. her pazartesi).": E(
+        "Connect Claude, ChatGPT or Cursor to this app via **MCP** ([setup]({docs})). Then write, for example:\n\n> *“Find this firm's monthly model portfolio on its own website and save it: …”*\n\n> *“Check the source pages of my saved model portfolios; if one changed, update it with the new date.”*\n\n> *“Compare the model portfolios in USD; which did best over the last 3 months?”*\n\nThe assistant reads the weights from the firm's published page and saves the source and date; it does not guess. For regular updates, use your assistant's scheduled-task feature (e.g. every Monday).",
+        "Verbinden Sie Claude, ChatGPT oder Cursor per **MCP** mit dieser App ([Einrichtung]({docs})). Schreiben Sie dann zum Beispiel:\n\n> *„Finde das monatliche Musterportfolio dieses Anbieters auf seiner Website und speichere es: …“*\n\n> *„Prüfe die Quellseiten meiner gespeicherten Musterportfolios; wenn sich eines geändert hat, aktualisiere es mit dem neuen Datum.“*\n\n> *„Vergleiche die Musterportfolios in USD; welches war in den letzten 3 Monaten am besten?“*\n\nDer Assistent liest die Gewichte von der veröffentlichten Seite des Anbieters und speichert Quelle und Datum; er schätzt nicht. Für regelmäßige Updates nutzen Sie die Funktion für geplante Aufgaben Ihres Assistenten (z. B. jeden Montag)."),
+    "Model portföyler kurumların kendi görüşleridir; burada yalnızca geçmiş fiyatlarla izlenir. İşlem maliyetleri, vergiler ve temettüler hesaba katılmaz. Yatırım tavsiyesi değildir.": E(
+        "Model portfolios are the firms' own views; here they are only tracked with past prices. Trading costs, taxes and dividends are not included. Not investment advice.",
+        "Musterportfolios sind Ansichten der Anbieter; hier werden sie nur mit historischen Kursen verfolgt. Handelskosten, Steuern und Dividenden sind nicht berücksichtigt. Keine Anlageberatung."),
+    "➕ Yeni model portföy": E("➕ New model portfolio", "➕ Neues Musterportfolio"),
+    "Model portföy": E("Model portfolio", "Musterportfolio"),
+    "Ad": E("Name", "Name"),
+    "örn. Kurum adı · Hisse model portföyü": E("e.g. Firm name · Equity model portfolio", "z. B. Anbieter · Aktien-Musterportfolio"),
+    "Kurum": E("Firm", "Anbieter"),
+    "Ülke": E("Country", "Land"),
+    "Kaynak bağlantısı": E("Source link", "Quelllink"),
+    "Geçerlilik tarihi": E("Effective date", "Gültig ab"),
+    "Kurumun bu dağılımı açıkladığı / uygulamaya başladığı gün. Yeni tarih yeni bir revizyon ekler; geçmiş korunur.": E(
+        "The day the firm announced / started this allocation. A new date adds a revision; history is kept.",
+        "Der Tag, an dem der Anbieter diese Gewichtung veröffentlicht / umgesetzt hat. Ein neues Datum fügt eine Revision hinzu; der Verlauf bleibt erhalten."),
+    "Ağırlık %": E("Weight %", "Gewicht %"),
+    "Toplam ağırlık: {w}": E("Total weight: {w}", "Gesamtgewicht: {w}"),
+    "BIST: THYAO · Yahoo: AAPL, VOO, ALV.DE · TEFAS: fon kodu (fiyat geçmişi Portföyüm'de) · Gram altın: sembol boş · Nakit: TRY/USD/EUR": E(
+        "BIST: THYAO · Yahoo: AAPL, VOO, ALV.DE · TEFAS: fund code (price history in My portfolio) · Gold (gram): empty symbol · Cash: TRY/USD/EUR",
+        "BIST: THYAO · Yahoo: AAPL, VOO, ALV.DE · TEFAS: Fondscode (Kursverlauf in Mein Portfolio) · Gold (Gramm): Symbol leer · Cash: TRY/USD/EUR"),
+    "Revizyonu kaydet": E("Save revision", "Revision speichern"),
+    "Model portföy adı girin.": E("Enter a model portfolio name.", "Geben Sie einen Namen für das Musterportfolio ein."),
+    "Kaydedilemedi: {err}": E("Could not save: {err}", "Speichern fehlgeschlagen: {err}"),
+    "“{name}” kaydedildi ({d}).": E("“{name}” saved ({d}).", "„{name}“ gespeichert ({d})."),
+    "Silmeyi onaylıyorum (geri alınamaz)": E("I confirm deletion (cannot be undone)", "Löschen bestätigen (nicht umkehrbar)"),
+    "Başlangıç = 100 ({cur})": E("Start = 100 ({cur})", "Start = 100 ({cur})"),
+    "Güncelleme": E("Updated", "Aktualisiert"),
+    "Gün sonu kapanış fiyatları (Yahoo Finance), 15 dakikada bir yenilenir; son fiyat günü {d}.": E(
+        "End-of-day closing prices (Yahoo Finance), refreshed every 15 minutes; latest price date {d}.",
+        "Schlusskurse (Yahoo Finance), alle 15 Minuten aktualisiert; letzter Kurstag {d}."),
+    "ⓑ kıyas serisi; en eski model portföyün başladığı günden itibaren.": E(
+        "ⓑ benchmark; from the start date of the oldest model portfolio.",
+        "ⓑ Vergleichsreihe; ab dem Startdatum des ältesten Musterportfolios."),
+    "Tüm seriler {cur} cinsindendir; TL değerler günlük kurla çevrilir.": E(
+        "All series are in {cur}; TRY values are converted at the daily rate.",
+        "Alle Reihen in {cur}; TRY-Werte werden zum Tageskurs umgerechnet."),
+    "Ağırlıkların toplamı %{total} idi; %100'e ölçeklendi.": E("Weights summed to {total}%; scaled to 100%.",
+                                                             "Die Gewichte ergaben {total} %; auf 100 % skaliert."),
+    "{asset}: {d} tarihinde fiyat yok, hesaba katılmadı; ağırlığı diğerlerine dağıtıldı.": E(
+        "{asset}: no price on {d}, left out; its weight was spread over the others.",
+        "{asset}: kein Kurs am {d}, nicht berücksichtigt; sein Gewicht wurde auf die anderen verteilt."),
 }

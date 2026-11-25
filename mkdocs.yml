@@ -27,6 +27,8 @@ nav:
   - User guide: user-guide.md
   - Model guide: models.md
   - Metrics glossary: metrics.md
+  - Model portfolios: model-portfolios.md
+  - AI assistants (MCP): ai-assistants.md
   - Library & CLI: library.md
   - Architecture: architecture.md
   - FAQ: faq.md
@@ -38,3 +40,4 @@ markdown_extensions:
   - toc: {permalink: true}
   - pymdownx.superfences
   - pymdownx.highlight
+  - pymdownx.tabbed: {alternate_style: true}

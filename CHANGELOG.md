@@ -5,6 +5,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-26
+
+### Added
+- **🏛️ Model portfolios page:** track model portfolios published by brokers, banks and asset managers in any country
+  side by side with end-of-day prices — chart and table in TRY/USD/EUR, 1D–1Y, YTD and since-inception returns,
+  volatility, max drawdown, optional benchmarks. Every update is stored as a dated revision and applied on its date.
+  Add them by hand or let your AI assistant keep them current through the new MCP tools (`save_model_portfolio`,
+  `compare_model_portfolios`, …). See `docs/model-portfolios.md`.
+- **MCP server for AI assistants:** `portfolio-models mcp` lets Claude, ChatGPT, Cursor, VS Code and other MCP clients
+  read your portfolio and live valuation, add or remove positions and transactions, run optimisations and backtests,
+  and fetch prices and CPI (TR/US/DE). stdio by default, `--http` for Streamable HTTP, `--read-only` to hide write
+  tools; also available as the `mcp` command of the Docker image. See `docs/ai-assistants.md`.
+
+### Changed
+- The symbol fields and position help now say explicitly that US/global ETFs (VOO, QQQ, IWDA.AS) are supported as
+  Yahoo symbols.
+
 ## [0.2.2] — 2026-11-25
 
 ### Added
@@ -50,7 +67,8 @@ All notable changes to this project are documented here. The format follows
 - 24 portfolio models on skfolio, Riskfolio-Lib and PyPortfolioOpt behind one interface.
 - Walk-forward backtests, CLI (`list`, `weights`, `backtest`), Streamlit UI, CI.
 
-[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ozanbayhan/portfolio-models/releases/tag/v0.2.0

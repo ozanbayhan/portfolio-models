@@ -76,7 +76,19 @@ settings = Table(
     UniqueConstraint("user_email", "name", name="uq_user_settings_user_name"),
 )
 
-TABLES = {"portfolio": portfolios, "holdings": holdings, "fund_prices": fund_prices, "settings": settings}
+model_portfolios = Table(
+    "model_portfolios",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("user_email", String(320), nullable=False, index=True),
+    Column("name", String(120), nullable=False),  # model portföy adı
+    Column("config", Text, nullable=False),  # JSON: kurum, ülke, kaynak, tarihli revizyonlar
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("user_email", "name", name="uq_model_portfolios_user_name"),
+)
+
+TABLES = {"portfolio": portfolios, "holdings": holdings, "fund_prices": fund_prices, "settings": settings,
+          "model_portfolio": model_portfolios}
 MAX_PORTFOLIOS_PER_USER = 50
 
 
