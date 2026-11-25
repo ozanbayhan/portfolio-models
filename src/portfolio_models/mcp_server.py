@@ -63,12 +63,20 @@ Finance in `symbols` (AAPL, VOO, QQQ, SPY, IWDA.AS, BTC-USD, GC=F, USDTRY=X).
 Asset kinds for positions: bist, fund (TEFAS fund code, price must be supplied), yahoo (US/global stock, ETF, crypto),
 gold (gram gold, no symbol), cash (currency code TRY/USD/EUR as symbol).
 
-Model portfolios: investment firms and banks in any country publish model portfolios (asset + target weight).
-Track them with save_model_portfolio (each call with a new `as_of` date adds a revision; history is kept so the
-performance reflects every change) and compare them with compare_model_portfolios. When the user asks you to add or
-update one, read the firm's own published page, then save exactly the holdings and weights it lists, the date the
-firm gives for the change, and the page URL as `source_url`. Do not invent or estimate weights; if the page does not
-give them, say so. Only save content the user is allowed to use; prefer official pages.
+Model portfolios: an archive of model portfolios that investment firms and banks in any country publish openly
+(asset + target weight), and their mathematical analysis. Track them with save_model_portfolio (each call with a new
+`as_of` date adds a revision; history is kept so the performance reflects every change), compare them with
+compare_model_portfolios, rank them with rank_model_portfolios and analyse one against optimisation models with
+analyze_model_portfolio.
+Rules for adding or updating one:
+- Use only pages that are publicly accessible without login, paywall or client account. If the portfolio is for
+  clients only, or the site's terms forbid reuse or automated access, do not save it; tell the user.
+- Read the firm's own published page and save only facts: the assets, their weights, the date the firm gives for the
+  change, and the page URL as `source_url` (required). Do not invent or estimate weights; if the page does not give
+  them, say so.
+- Do not copy the report's text, commentary, charts or files. `note` is at most 280 characters in your own words.
+- Do not add logos or describe the firm beyond its name.
+Present rankings as a statistical summary of past data, not as a recommendation of which portfolio to follow.
 
 This is an educational tool, not investment advice. Say so when presenting optimisation results.
 Before calling a tool that changes saved data, tell the user exactly what will change."""
@@ -424,13 +432,17 @@ def save_model_portfolio(name: str, holdings: list[Holding], as_of: str | None =
     name: short unique name, e.g. "Acme Securities · Equity model". holdings: [{kind, symbol, weight}] with weight in
     percent (scaled to 100 if needed); kinds: bist (THYAO), yahoo (AAPL, VOO, ALV.DE), fund (TEFAS code), gold, cash.
     as_of: YYYY-MM-DD the firm's change took effect (default today); a revision on the same date is replaced, an
-    earlier revision history is kept. provider / country (ISO code, e.g. TR, US, DE) / source_url / note: metadata.
+    earlier revision history is kept. source_url: the firm's public page the weights were read from (required).
+    provider / country (ISO code, e.g. TR, US, DE): metadata. note: ≤280 characters in your own words, never copied
+    report text.
     """
     from .model_portfolios import STORE_KIND, add_revision
 
     engine = _engine()
     name = name.strip()
     old = store.load_portfolio(engine, _user(), name, kind=STORE_KIND)
+    if not (source_url or (old or {}).get("source_url")):
+        raise ValueError("source_url is required: the firm's public page the weights were read from.")
     cfg, warns = add_revision(old, as_of or f"{date.today():%Y-%m-%d}", [dict(h) for h in holdings],
                               provider=provider, country=country.upper() if country else None,
                               source_url=source_url, note=note)
@@ -445,6 +457,104 @@ def delete_model_portfolio(name: str) -> dict:
     if not store.delete_portfolio(_engine(), _user(), name, kind=STORE_KIND):
         raise ValueError(f"No model portfolio named {name!r}.")
     return {"deleted": name}
+
+
+def _mp_market(names: list[str] | None, benchmark: str | None, currency: str):
+    from .fund_prices import history_series
+    from .model_analysis import in_ccy
+    from .model_portfolios import load_all, market_for
+
+    engine = _engine()
+    configs = load_all(engine, _user())
+    if names:
+        unknown = sorted(set(names) - set(configs))
+        if unknown:
+            raise ValueError(f"Unknown model portfolios: {', '.join(unknown)}.")
+        configs = {n: configs[n] for n in names}
+    if not configs:
+        raise ValueError("No model portfolios saved yet. Use save_model_portfolio first.")
+    fund_hist = {f["name"]: history_series(store.load_portfolio(engine, _user(), f["name"], kind=FUNDS) or {})
+                 for f in store.list_portfolios(engine, _user(), kind=FUNDS)}
+    try_prices, closes = market_for(configs, [benchmark] if benchmark else [], fund_history=fund_hist)
+    return configs, in_ccy(try_prices, closes, currency)
+
+
+BenchmarkName = Literal["BIST100", "S&P 500", "DAX", "Gram altın", "USD", "EUR"]
+
+
+def rank_model_portfolios(by: Literal["return", "risk_adjusted", "alpha", "hit_rate", "consistency", "drawdown",
+                                      "volatility"] = "risk_adjusted",
+                          window: Literal["since_inception", "ytd", "1y", "3m"] = "since_inception",
+                          currency: Literal["TRY", "USD", "EUR"] = "TRY", benchmark: BenchmarkName | None = "BIST100",
+                          names: list[str] | None = None) -> dict:
+    """Rank saved model portfolios. by: return (total), risk_adjusted (Sharpe, no risk-free rate deducted), alpha
+    (annualised return minus the benchmark's), hit_rate (share of picked non-cash assets that beat the benchmark while
+    held), consistency (share of months above the benchmark), drawdown (smallest max drawdown first), volatility
+    (lowest first). With a window, all portfolios start on the same day; those starting later are left out.
+    """
+    from .model_analysis import leaderboard, rank
+
+    configs, prices = _mp_market(names, benchmark, currency)
+    win = {"since_inception": None, "ytd": "ytd", "1y": 365, "3m": 91}[window]
+    lb = rank(leaderboard(configs, prices, benchmark, win), by)
+    pct_cols = ["total", "annual", "vol", "max_dd", "alpha", "tracking_error", "hit_rate", "monthly_win",
+                "bench_total"]
+    rows = []
+    for i, (name, r) in enumerate(lb.iterrows(), 1):
+        rows.append({"rank": i, "name": name, "provider": r["provider"], "since": _clean(r["since"]),
+                     "revisions": int(r["revisions"])}
+                    | {f"{c}_pct": _pct(r[c]) for c in pct_cols}
+                    | {c: (round(float(r[c]), 3) if pd.notna(r[c]) else None)
+                       for c in ("sharpe", "sortino", "beta", "info_ratio")})
+    return {"ranked_by": by, "window": window, "currency": currency, "benchmark": benchmark, "results": rows,
+            "note": "Statistical summary of past prices computed by this app (no costs, taxes or dividends); may "
+                    "differ from figures the firms publish. Not investment advice."}
+
+
+def analyze_model_portfolio(name: str, currency: Literal["TRY", "USD", "EUR"] = "TRY",
+                            benchmark: BenchmarkName | None = "BIST100", models: list[str] | None = None,
+                            revision_date: str | None = None) -> dict:
+    """How a model portfolio looks through optimisation models. For the chosen revision (default the latest) the same
+    assets are given to each model using only prices before the revision date (≤1 year): compares weights, risk
+    profile (volatility, effective number of assets, diversification ratio, top risk contributor) and distance from
+    the firm's weights. Then each model's weights are held on the firm's revision calendar since the first revision,
+    so performance shows "same assets, different weights". decomposition: selection = equal-weighted same assets minus
+    benchmark; weighting = firm minus equal-weighted. Cash and assets without enough history keep the firm's weight.
+    """
+    from .model_analysis import ACTUAL, analyze
+
+    configs, prices = _mp_market([name], benchmark, currency)
+    cfg = configs[name]
+    dates = [r["date"] for r in cfg["revisions"]]
+    idx = -1
+    if revision_date:
+        if revision_date not in dates:
+            raise ValueError(f"No revision on {revision_date}; revisions: {', '.join(dates)}.")
+        idx = dates.index(revision_date) - len(dates)
+    a = analyze(cfg, prices, benchmark, models, revision=idx)
+    key = lambda k: "firm" if k == ACTUAL else k  # noqa: E731
+    return {
+        "name": name, "revision": a.as_of, "currency": currency, "benchmark": benchmark,
+        "weights_pct": {key(c): {asset: round(float(v) * 100, 2) for asset, v in a.weights[c].items() if v > 1e-6}
+                        for c in a.weights.columns},
+        "risk_profile": {key(k): {"annual_volatility_pct": _pct(p.ann_vol), "past_return_pct": _pct(p.ann_ret),
+                                  "return_to_risk": None if p.ratio is None else round(p.ratio, 3),
+                                  "effective_assets": round(p.eff_n, 2),
+                                  "diversification_ratio": None if p.div_ratio is None else round(p.div_ratio, 3),
+                                  "top_risk_asset": p.top_risk, "top_risk_share_pct": _pct(p.top_risk_share),
+                                  "differs_from_firm_pct": _pct(p.distance)} for k, p in a.profiles.items()},
+        "firm_risk_contributions_pct": {k: _pct(v) for k, v in a.risk_contrib.items()},
+        "closest_model": a.closest,
+        "performance_since_first_revision": {key(k): {"total_pct": _pct(s.get("total")), "vol_pct": _pct(s.get("vol")),
+                                                      "max_drawdown_pct": _pct(s.get("max_dd")),
+                                                      "sharpe": None if s.get("sharpe") is None
+                                                      else round(s["sharpe"], 3),
+                                                      "alpha_pct": _pct(s.get("alpha"))}
+                                             for k, s in a.scores.items()},
+        "decomposition_pct": {k: _pct(v) for k, v in a.decomposition.items()},
+        "notes": a.notes,
+        "note": "Models see only data before each revision date. Educational analysis, not investment advice.",
+    }
 
 
 def compare_model_portfolios(names: list[str] | None = None, currency: Literal["TRY", "USD", "EUR"] = "TRY",
@@ -513,7 +623,7 @@ def build_server(read_only: bool | None = None):
     for fn, ann in ((list_models, local_ro), (optimize_portfolio, ro), (backtest_models, ro), (get_prices, ro),
                     (get_inflation, ro), (list_portfolios, local_ro), (get_portfolio, ro),
                     (list_model_portfolios, local_ro), (get_model_portfolio, local_ro),
-                    (compare_model_portfolios, ro)):
+                    (compare_model_portfolios, ro), (rank_model_portfolios, ro), (analyze_model_portfolio, ro)):
         server.tool(annotations=ann)(fn)
     if not read_only:
         server.tool(annotations=write)(add_position)

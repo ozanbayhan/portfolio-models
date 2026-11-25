@@ -108,3 +108,44 @@ def test_model_portfolio_tools_registered():
 
     assert {"save_model_portfolio", "compare_model_portfolios", "delete_model_portfolio"} <= asyncio.run(names(False))
     assert "save_model_portfolio" not in asyncio.run(names(True))
+
+
+def test_model_portfolio_archive_rules():
+    h = [{"kind": "yahoo", "symbol": "VOO", "weight": 100}]
+    with pytest.raises(ValueError, match="source_url"):
+        m.save_model_portfolio("X", h, as_of="2026-11-03")
+    with pytest.raises(ValueError, match="source_url"):
+        m.save_model_portfolio("X", h, as_of="2026-11-03", source_url="file:///etc/passwd")
+    with pytest.raises(ValueError, match="280"):
+        m.save_model_portfolio("X", h, as_of="2026-11-03", source_url="https://example.com", note="x" * 281)
+    assert m.list_model_portfolios() == []
+
+
+def test_rank_and_analyze_tools(monkeypatch):
+    import numpy as np
+    from portfolio_models import model_portfolios as mp
+
+    idx = pd.bdate_range("2025-06-02", "2026-11-20")
+    rng = np.random.default_rng(0)
+
+    def market(positions, years=1):
+        cols = {t: 100 * np.cumprod(1 + rng.normal(0.0004, s, len(idx)))
+                for t, s in (("VOO", 0.01), ("QQQ", 0.02), ("GLD", 0.008), ("XU100.IS", 0.015))}
+        cols |= {"USDTRY=X": 40.0, "EURTRY=X": 46.0}
+        return pd.DataFrame(cols, index=idx), {"VOO": "USD", "QQQ": "USD", "GLD": "USD", "XU100.IS": "TRY"}
+
+    orig = mp.market_for
+    monkeypatch.setattr(mp, "market_for", lambda c, b, **k: orig(c, b, market=market, **k))
+    for name, h in (("A", [("VOO", 60), ("GLD", 40)]), ("B", [("QQQ", 70), ("VOO", 30)])):
+        m.save_model_portfolio(name, [{"kind": "yahoo", "symbol": s, "weight": w} for s, w in h], as_of="2026-03-02",
+                               source_url="https://example.com")
+    r = m.rank_model_portfolios(by="volatility", currency="USD")
+    assert [x["rank"] for x in r["results"]] == [1, 2]
+    assert r["results"][0]["vol_pct"] <= r["results"][1]["vol_pct"]
+    a = m.analyze_model_portfolio("A", models=["equal_weighted", "min_variance"])
+    assert set(a["weights_pct"]) == {"firm", "equal_weighted", "min_variance"}
+    assert a["weights_pct"]["equal_weighted"] == {"VOO": 50.0, "GLD": 50.0}
+    assert a["risk_profile"]["firm"]["differs_from_firm_pct"] == 0
+    assert {"firm", "equal_weighted", "min_variance", "BIST100"} <= set(a["performance_since_first_revision"])
+    with pytest.raises(ValueError):
+        m.analyze_model_portfolio("A", revision_date="2020-01-01")

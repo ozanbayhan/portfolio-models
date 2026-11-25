@@ -2,7 +2,8 @@
 
 Brokers, banks and asset managers in many countries publish **model portfolios**: a list of assets with target
 weights, revised every few weeks. The **🏛️ Model portfolios** page tracks any number of them side by side with
-end-of-day prices, so you can see whose calls actually worked.
+end-of-day prices, ranks them, and shows how each one looks through the optimisation models.
+It is an **archive and a mathematical analysis** of portfolios that firms publish openly, not a recommendation service.
 
 ## What you get
 
@@ -18,6 +19,39 @@ end-of-day prices, so you can see whose calls actually worked.
 Assets can be BIST stocks, anything on Yahoo Finance (US/European stocks, ETFs, crypto), TEFAS funds (with a price
 history uploaded on *My portfolio*), gram gold and cash. If an asset has no price on a revision date, it is left out
 and its weight is spread over the others. A warning says so.
+
+## 🏆 Ranking
+
+The **Ranking** tab orders the selected model portfolios by one measure, since inception or over a window
+(year-to-date, 1 year, 3 months; with a window all portfolios start on the same day and those that started later are
+left out):
+
+| Ranking | Measure |
+|---|---|
+| Highest return | Total return in the period |
+| Risk-adjusted return | Sharpe ratio: mean daily return ÷ volatility, annualised (no risk-free rate deducted); Sortino shown too |
+| Excess over benchmark | Alpha: annualised return minus the benchmark's (≥ 90 days); beta, tracking error and information ratio in the MCP output |
+| Hit rate | Share of the assets picked in each revision (cash excluded) that beat the benchmark while they were held |
+| Consistency | Share of calendar months in which the portfolio beat the benchmark (≥ 3 months) |
+| Smallest drawdown / lowest volatility | Largest fall from a peak; annualised volatility |
+
+## 📐 Optimisation analysis
+
+How does a firm's portfolio look to an optimiser? For the chosen revision, the **same assets** are given to the
+optimisation models (equal weight, inverse volatility, minimum variance, max Sharpe with shrinkage, risk parity, HRP,
+maximum diversification) using **only prices before the revision date** (up to one year), so nothing looks ahead.
+
+- **Weights** of the firm next to each model's, and how far each model is from the firm (½ Σ|wᵢ − aᵢ|: the share of
+  the portfolio that would have to move). The closest model tells you which style the firm's weighting resembles.
+- **Risk profile** with the same data: annual volatility, past return, return/risk, effective number of assets
+  (1 / Σw²), diversification ratio (Σwσ / σₚ) and the asset that contributes most to risk.
+- **Same assets, different weights:** each model is re-fitted on every revision date of the firm and held until the
+  next one. The chart and table compare the firm's path with the models' and the benchmark.
+- **Selection vs. weighting:** the difference to the benchmark since the first revision is split into *asset
+  selection* (same assets equally weighted minus benchmark) and *weighting* (firm minus equal weight).
+
+Cash and assets without enough price history (60 trading days) keep the firm's weight; the models only re-weight the
+rest.
 
 ## Keeping them up to date with AI
 
@@ -37,6 +71,8 @@ automatically, use your assistant's scheduled tasks (for example, every Monday m
 | `get_model_portfolio` | Full revision history of one |
 | `save_model_portfolio` | Create one, or add a dated revision |
 | `compare_model_portfolios` | Performance table in TRY/USD/EUR with benchmarks |
+| `rank_model_portfolios` | Rank by return, Sharpe, alpha, hit rate, consistency, drawdown or volatility |
+| `analyze_model_portfolio` | The optimisation analysis above for one portfolio and revision |
 | `delete_model_portfolio` | Delete one and its history |
 
 ## Entering them by hand
@@ -49,5 +85,14 @@ with a new date adds a revision. Saving with the same date replaces that revisio
 
 - Trading costs, taxes and dividends are not included (price returns).
 - BIST-listed ETFs have no price history on Yahoo Finance and cannot be tracked.
-- Only use content you are allowed to use. Model portfolios are the firms' views; this page only measures them with
-  past prices. It is not investment advice.
+- Performance is computed by this app and may differ from the figures a firm publishes.
+
+## Sources, copyright and investment advice
+
+- Add only portfolios that are **publicly accessible** without login, paywall or client account, and only when the
+  site's terms allow reuse. The AI assistant is instructed to skip anything else and tell you.
+- Only **facts** are stored: assets, weights, the effective date and a link to the source (`source_url` is required
+  through MCP). The reports' text, commentary, charts and files are not copied; a note is limited to 280 characters
+  in your own words.
+- Rankings are a statistical summary of past prices, not a recommendation. Nothing on the page is investment advice.
+- If you run a public instance, offer a contact for corrections and removal requests and act on them promptly.

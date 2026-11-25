@@ -26,10 +26,12 @@ requests (Yahoo Finance, TCMB EVDS, FRED/BLS, Bundesbank, OECD).
 | `list_model_portfolios` | Saved model portfolios (firm, country, last update) | no |
 | `get_model_portfolio` | Current weights, source and revision history of one model portfolio | no |
 | `compare_model_portfolios` | 1D–1Y, YTD and since-inception returns, volatility and drawdown vs. benchmarks | no |
+| `rank_model_portfolios` | Rank by return, Sharpe, alpha, hit rate, consistency, drawdown or volatility | no |
+| `analyze_model_portfolio` | Compare a model portfolio with optimisation models on the same assets | no |
 | `add_position` | Add or update a holding (BIST stock, US/global stock/ETF, TEFAS fund, gold, cash) | **yes** |
 | `remove_position` | Remove a holding | **yes** |
 | `add_transaction` | Record a buy, sell, dividend, deposit or withdrawal | **yes** |
-| `save_model_portfolio` | Save a firm's model portfolio, or a new dated revision of it | **yes** |
+| `save_model_portfolio` | Save a firm's publicly published model portfolio (source link required), or a new dated revision | **yes** |
 | `delete_model_portfolio` | Delete a model portfolio | **yes** |
 
 Start with `--read-only` (or `PM_MCP_READ_ONLY=1`) to offer only the read tools. Most clients also ask you to

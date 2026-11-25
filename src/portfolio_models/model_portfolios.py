@@ -45,6 +45,8 @@ BENCHMARKS = {
     "EUR": ("cash", "EUR"),
 }
 
+NOTE_MAX = 280  # kısa, kendi cümlemiz: raporların metni kopyalanmaz (telif)
+
 WINDOWS = {"1G": 1, "1H": 7, "1A": 30, "3A": 91, "YB": "ytd", "1Y": 365}
 
 
@@ -113,6 +115,12 @@ def add_revision(cfg: dict | None, as_of: str, holdings: list[dict], **meta) -> 
     if d > pd.Timestamp(date.today()):
         raise ValueError("as_of cannot be in the future.")
     rows, warnings = validate_holdings(holdings)
+    url = meta.get("source_url")
+    if url and not str(url).lower().startswith(("http://", "https://")):
+        raise ValueError("source_url must be an http(s) link to the firm's public page.")
+    if meta.get("note") and len(str(meta["note"])) > NOTE_MAX:
+        raise ValueError(f"note is limited to {NOTE_MAX} characters: write a short note in your own words; "
+                         "do not copy the firm's report text.")
     cfg = dict(cfg or {})
     revs = [r for r in cfg.get("revisions", []) if r["date"] != f"{d:%Y-%m-%d}"]
     revs.append({"date": f"{d:%Y-%m-%d}", "holdings": rows})

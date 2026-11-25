@@ -1,6 +1,6 @@
 [project]
 name = "portfolio-models"
-version = "0.3.0"
+version = "0.4.0"
 description = "Self-hostable portfolio optimisation & tracking: 24 models (skfolio, Riskfolio-Lib, PyPortfolioOpt), walk-forward backtests, BIST/TEFAS/US/gold/crypto, TR/EN/DE"
 readme = "README.md"
 license = "MIT"

@@ -5,6 +5,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-26
+
+### Added
+- **🏆 Ranking** of model portfolios by return, risk-adjusted return (Sharpe/Sortino), alpha vs. benchmark, hit rate,
+  monthly consistency, drawdown or volatility, since inception or over a common window.
+- **📐 Optimisation analysis:** the same assets are given to seven optimisation models with only the data before
+  each revision date; compares weights, risk profile and performance ("same assets, different weights") and splits
+  the excess return into selection and weighting.
+- MCP tools `rank_model_portfolios` and `analyze_model_portfolio`.
+
+### Changed
+- Model portfolios are framed as an archive of openly published portfolios: `source_url` is required when saving
+  through MCP and must be an http(s) link, notes are limited to 280 characters, and the assistant is told to skip
+  portfolios behind a login or whose terms forbid reuse and never to copy report text. Clearer disclaimer on the page.
+
 ## [0.3.0] — 2026-11-26
 
 ### Added
@@ -67,7 +82,8 @@ All notable changes to this project are documented here. The format follows
 - 24 portfolio models on skfolio, Riskfolio-Lib and PyPortfolioOpt behind one interface.
 - Walk-forward backtests, CLI (`list`, `weights`, `backtest`), Streamlit UI, CI.
 
-[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.0...v0.2.1

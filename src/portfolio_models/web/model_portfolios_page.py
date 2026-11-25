@@ -13,12 +13,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from portfolio_models import model_analysis as ma
 from portfolio_models import model_portfolios as mp
 from portfolio_models import store
 from portfolio_models.fund_prices import history_series
 from portfolio_models.holdings import KINDS, display_label
 from portfolio_models.i18n import t
-from portfolio_models.insights import pct
+from portfolio_models.insights import num, pct
 
 DOCS = "https://ozanbayhan.github.io/portfolio-models/model-portfolios/"
 CURRENCIES = {"TRY": "₺ TRY", "USD": "$ USD", "EUR": "€ EUR"}
@@ -26,6 +27,18 @@ PERIOD_KEYS = {"1 ay": 30, "3 ay": 91, "Yılbaşından": "ytd", "1 yıl": 365, "
 COLS = [("1G", "1 gün"), ("1H", "1 hafta"), ("1A", "1 ay"), ("3A", "3 ay"), ("YB", "Yılbaşından"),
         ("1Y", "1 yıl"), ("total", "Başlangıçtan"), ("annual", "Yıllık"), ("vol", "Volatilite"),
         ("max_dd", "Maks. düşüş")]
+GREY = "#9CA3AF"
+
+
+def DISCLAIMER() -> str:  # noqa: N802 - dil değişince yeniden çevrilsin diye fonksiyon
+    return t("Bu sayfa, kurumların kamuya açık olarak yayımladığı model portföylerin bir arşivi ve matematiksel "
+             "analizidir. Yalnızca varlık, ağırlık ve tarih bilgisi saklanır; raporların metni, grafikleri ve "
+             "dosyaları kopyalanmaz, kaynak bağlantısı verilir. Performans bu uygulama tarafından geçmiş kapanış "
+             "fiyatlarıyla hesaplanır (işlem maliyeti, vergi ve temettü hariç) ve kurumun açıkladığı rakamlardan "
+             "farklı olabilir. Sıralamalar geçmiş verinin istatistiksel bir özetidir. Burada yer alan bilgiler "
+             "yatırım danışmanlığı kapsamında değildir; yatırım tavsiyesi değildir.")
+
+
 PALETTE = ["#4F46E5", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#84CC16"]
 
 
@@ -164,7 +177,20 @@ def model_portfolios_page(user_store, show_flash) -> None:
                 st.error(t("Hesaplanamadı: {err}", err=exc))
                 comp = None
         if comp is not None and comp.indices:
-            _results(comp, period, currency)
+            tab_cmp, tab_rank, tab_an = st.tabs([t("📈 Karşılaştırma"), t("🏆 Sıralama"), t("📐 Optimizasyon analizi")])
+            with tab_cmp:
+                _results(comp, period, currency)
+            prices = None
+            try:
+                prices = ma.in_ccy(try_prices, closes, currency)
+            except ValueError as exc:
+                st.error(t("Hesaplanamadı: {err}", err=exc))
+            if prices is not None:
+                bench = benches[0] if benches else None
+                with tab_rank:
+                    _ranking(sel, prices, bench, currency)
+                with tab_an:
+                    _analysis_tab(sel, try_prices, closes, currency, bench)
         elif comp is not None:
             st.warning(t("Seçili model portföyler için fiyat bulunamadı."))
 
@@ -202,8 +228,7 @@ def model_portfolios_page(user_store, show_flash) -> None:
             st.caption(email)
         else:
             _editor(engine, email, {} if example else configs, show_flash)
-    st.caption(t("Model portföyler kurumların kendi görüşleridir; burada yalnızca geçmiş fiyatlarla izlenir. "
-                 "İşlem maliyetleri, vergiler ve temettüler hesaba katılmaz. Yatırım tavsiyesi değildir."))
+    st.caption(DISCLAIMER())
     ui.footer()
 
 
@@ -240,3 +265,154 @@ def _results(comp: mp.Comparison, period: str, currency: str) -> None:
     st.caption(" ".join(notes))
     for name, ws in comp.warnings.items():
         st.warning(f"**{name}:** " + " ".join(ws))
+
+
+def _model_name(m: str) -> str:
+    from portfolio_models.models import MODELS
+
+    if m == ma.ACTUAL:
+        return t("Kurumun portföyü")
+    return t(MODELS[m][1]) if m in MODELS else display_label(m)
+
+
+RANK_LABELS = {
+    "return": "En yüksek getiri",
+    "risk_adjusted": "Riske göre getiri (Sharpe)",
+    "alpha": "Kıyasa göre fark (alfa)",
+    "hit_rate": "İsabet oranı",
+    "consistency": "Tutarlılık (aylık)",
+    "drawdown": "En küçük düşüş",
+    "volatility": "En düşük oynaklık",
+}
+RANK_HELP = {
+    "return": "Seçilen dönemdeki toplam getiri.",
+    "risk_adjusted": "Günlük getirilerin ortalamasının oynaklığa oranı, yıllık. Risksiz faiz düşülmez.",
+    "alpha": "Yıllık getirinin, aynı dönemde kıyas serisinin yıllık getirisinden farkı (en az 90 gün).",
+    "hit_rate": "Her revizyonda seçilen varlıklardan (nakit hariç), tutuldukları dönemde kıyası geçenlerin oranı.",
+    "consistency": "Ayların yüzde kaçında portföyün kıyas serisinin üstünde kaldığı (en az 3 ay).",
+    "drawdown": "Zirveden en büyük düşüş; küçük olan üstte.",
+    "volatility": "Yıllık oynaklık; düşük olan üstte.",
+}
+RANK_WINDOWS = {"Başlangıçtan": None, "Yılbaşından": "ytd", "1 yıl": 365, "3 ay": 91}
+
+
+def _ranking(sel: dict[str, dict], prices: pd.DataFrame, bench: str | None, currency: str) -> None:
+    c1, c2 = st.columns([2, 1])
+    by = c1.segmented_control(t("Sırala"), list(RANK_LABELS), default="risk_adjusted", key="mp_rank_by",
+                              format_func=lambda k: t(RANK_LABELS[k])) or "risk_adjusted"
+    win = c2.selectbox(t("Dönem"), list(RANK_WINDOWS), key="mp_rank_win", format_func=t)
+    st.caption(t(RANK_HELP[by]))
+    if by in ("alpha", "hit_rate", "consistency") and not bench:
+        st.info(t("Bu sıralama için yukarıdan bir kıyas serisi seçin."))
+        return
+    lb = ma.leaderboard(sel, prices, bench, RANK_WINDOWS[win])
+    if lb.empty:
+        st.info(t("Bu dönemin tamamını kapsayan model portföy yok."))
+        return
+    lb = ma.rank(lb, by)
+    fmt_pct = lambda v: _fmt(v)  # noqa: E731
+    fmt_num = lambda v: "—" if v is None or pd.isna(v) else num(v)  # noqa: E731
+    rows = []
+    for i, (name, r) in enumerate(lb.iterrows(), 1):
+        rows.append({
+            "#": i, t("Model portföy"): name, t("Kurum"): r["provider"] or "—",
+            t("Getiri"): fmt_pct(r["total"]), t("Yıllık"): fmt_pct(r["annual"]),
+            t("Volatilite"): fmt_pct(r["vol"]), t("Maks. düşüş"): fmt_pct(r["max_dd"]),
+            "Sharpe": fmt_num(r["sharpe"]), "Sortino": fmt_num(r["sortino"]),
+            t("Alfa"): fmt_pct(r["alpha"]), "Beta": fmt_num(r["beta"]),
+            t("İsabet"): fmt_pct(r["hit_rate"]), t("Tutarlılık"): fmt_pct(r["monthly_win"]),
+            t("Revizyon"): int(r["revisions"]),
+        })
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+    st.caption(t("Para birimi: {cur}. Kıyas: {b}. Dönem seçildiğinde tüm portföyler aynı günden başlatılır; o "
+                 "tarihten sonra başlayanlar listede yer almaz.", cur=currency, b=display_label(bench) if bench else "—")
+               + " " + t("Sıralama geçmiş verinin özetidir; gelecekteki sonuçları göstermez."))
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _analysis(cfg_json: str, prices: pd.DataFrame, bench: str | None, revision: int):
+    return ma.analyze(json.loads(cfg_json), prices, bench, revision=revision)
+
+
+def _analysis_tab(sel, try_prices, closes, currency, bench) -> None:
+    st.markdown(t("Kurumun seçtiği varlıklar, revizyon tarihine kadarki (en çok 1 yıllık) fiyatlarla optimizasyon "
+                  "modellerine verilir. Böylece kurumun ağırlıklarının risk açısından nerede durduğu ve **aynı "
+                  "varlıkları bir model ağırlıklandırsaydı** sonucun ne olacağı görülür. Modeller geleceği görmez."))
+    c1, c2 = st.columns([2, 1])
+    name = c1.selectbox(t("Model portföy"), list(sel), key="mp_an_pick")
+    cfg = sel[name]
+    revs = cfg["revisions"]
+    labels = {i - len(revs): pd.Timestamp(r["date"]).strftime("%d.%m.%Y") for i, r in enumerate(revs)}
+    revision = c2.selectbox(t("İncelenen revizyon"), list(labels)[::-1], format_func=labels.get, key=f"mp_an_rev_{name}")
+    prices = ma.in_ccy(try_prices, closes, currency)
+    with st.spinner(t("Modeller hesaplanıyor…")):
+        try:
+            a = _analysis(json.dumps(cfg, sort_keys=True, default=str), prices, bench, revision)
+        except Exception as exc:  # noqa: BLE001
+            st.error(t("Hesaplanamadı: {err}", err=exc))
+            return
+
+    # Özet
+    d = a.decomposition
+    facts = []
+    if a.closest:
+        facts.append(t("Ağırlıkça en çok benzediği model: **{m}** (fark: portföyün {d}).",
+                       m=_model_name(a.closest), d=pct(a.profiles[a.closest].distance, 0)))
+    pa = a.profiles[ma.ACTUAL]
+    if pa.ann_vol is not None:
+        facts.append(t("Revizyon öncesi verilerle yıllık oynaklık ~{v}, etkin varlık sayısı {n}, çeşitlendirme "
+                       "oranı {dr}.", v=pct(pa.ann_vol, 1), n=num(pa.eff_n, 1),
+                       dr="—" if pa.div_ratio is None else num(pa.div_ratio)))
+    if pa.top_risk:
+        facts.append(t("Riskin en büyük kaynağı **{a}** (toplam riskteki payı: {s}).", a=display_label(pa.top_risk),
+                       s=pct(pa.top_risk_share, 0)))
+    if d["total_vs_benchmark"] is not None:
+        facts.append(t("İlk revizyondan bu yana kıyasa göre fark {tot}: varlık seçimi {sel} (aynı varlıklar eşit "
+                       "ağırlıkla), ağırlıklandırma {w}.", tot=pct(d["total_vs_benchmark"], 1, sign=True),
+                       sel=pct(d["selection"], 1, sign=True), w=pct(d["weighting"], 1, sign=True)))
+    if facts:
+        st.markdown("\n".join(f"- {f}" for f in facts))
+
+    # Ağırlıklar
+    st.markdown("**" + t("Ağırlıklar ({d})", d=pd.Timestamp(a.as_of).strftime("%d.%m.%Y")) + "**")
+    w = a.weights.rename(index=display_label, columns=_model_name)
+    st.dataframe(w.map(lambda v: pct(v, 1) if v > 1e-6 else ""), width="stretch")
+
+    # Risk profili
+    st.markdown("**" + t("Risk profili (revizyon öncesi veriyle)") + "**")
+    prof = []
+    for k, p in a.profiles.items():
+        prof.append({t("Portföy"): _model_name(k), t("Yıllık oynaklık"): _fmt(p.ann_vol),
+                     t("Geçmiş getiri"): _fmt(p.ann_ret),
+                     t("Getiri/risk"): "—" if p.ratio is None else num(p.ratio),
+                     t("Etkin varlık"): num(p.eff_n, 1),
+                     t("Çeşitlendirme oranı"): "—" if p.div_ratio is None else num(p.div_ratio),
+                     t("Kurumdan farkı"): pct(p.distance, 0)})
+    st.dataframe(pd.DataFrame(prof), hide_index=True, width="stretch")
+
+    # Performans: kurum vs modeller
+    st.markdown("**" + t("Aynı varlıklar, farklı ağırlıklar: ilk revizyondan bu yana") + "**")
+    fig = go.Figure()
+    for i, (k, s) in enumerate(a.paths.items()):
+        is_act, is_b = k == ma.ACTUAL, k == bench
+        fig.add_trace(go.Scatter(
+            x=s.index, y=s, name=display_label(k) if is_b else _model_name(k), mode="lines",
+            line={"color": PALETTE[0] if is_act else GREY if is_b else PALETTE[1 + i % (len(PALETTE) - 1)],
+                  "width": 3 if is_act else 1.4, "dash": "dot" if is_b else "solid"},
+            opacity=1 if is_act or is_b else 0.75))
+    fig.update_layout(height=400, legend={"orientation": "h", "y": -0.18}, hovermode="x unified",
+                      yaxis_title=t("Başlangıç = 100 ({cur})", cur=currency), margin={"t": 10})
+    st.plotly_chart(fig, width="stretch")
+    perf = []
+    for k, sc in sorted(a.scores.items(), key=lambda kv: -(kv[1].get("sharpe") or -99)):
+        perf.append({t("Portföy"): display_label(k) + " ⓑ" if k == bench else _model_name(k),
+                     t("Getiri"): _fmt(sc.get("total")), t("Volatilite"): _fmt(sc.get("vol")),
+                     t("Maks. düşüş"): _fmt(sc.get("max_dd")),
+                     "Sharpe": "—" if sc.get("sharpe") is None else num(sc["sharpe"]),
+                     t("Alfa"): _fmt(sc.get("alpha"))})
+    st.dataframe(pd.DataFrame(perf), hide_index=True, width="stretch")
+    st.caption(t("Model yolları kurumun revizyon takvimini izler: her revizyon tarihinde model, o güne kadarki "
+                 "verilerle yeniden ağırlıklandırır ve bir sonraki revizyona kadar tutar. Nakit ve fiyat geçmişi "
+                 "yetersiz varlıkların payı kurumunkiyle aynı bırakılır."))
+    for n in a.notes:
+        st.caption("ⓘ " + n)
