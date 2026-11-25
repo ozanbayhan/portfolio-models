@@ -1,0 +1,40 @@
+site_name: Portfolio Models
+site_description: Self-hostable portfolio optimisation & tracking — 24 models, one interface.
+site_url: https://ozanbayhan.github.io/portfolio-models/
+repo_url: https://github.com/ozanbayhan/portfolio-models
+repo_name: ozanbayhan/portfolio-models
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle: {icon: material/weather-sunny, name: Light mode}
+  features: [navigation.instant, navigation.sections, navigation.top, content.code.copy, search.highlight]
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Self-hosting: self-hosting.md
+  - User guide: user-guide.md
+  - Model guide: models.md
+  - Metrics glossary: metrics.md
+  - Library & CLI: library.md
+  - Architecture: architecture.md
+  - FAQ: faq.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc: {permalink: true}
+  - pymdownx.superfences
+  - pymdownx.highlight

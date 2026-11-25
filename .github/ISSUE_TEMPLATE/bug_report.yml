@@ -1,0 +1,29 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead? Screenshots help.
+    validations: {required: true}
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options: [Live demo, uvx / pip, Docker, Docker Compose, Python library / CLI, Other]
+    validations: {required: true}
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.2.0 or commit hash"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / error message
+      render: text
+  - type: markdown
+    attributes:
+      value: "⚠️ Please remove personal data (portfolio values, e-mail addresses, API keys) before posting."

@@ -1,7 +1,27 @@
 [project]
 name = "portfolio-models"
-version = "0.1.0"
-description = "Tüm portföy modelleri tek çatı altında: skfolio, Riskfolio-Lib, PyPortfolioOpt"
+version = "0.2.0"
+description = "Self-hostable portfolio optimisation & tracking: 24 models (skfolio, Riskfolio-Lib, PyPortfolioOpt), walk-forward backtests, BIST/TEFAS/US/gold/crypto, TR/EN/DE"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["portfolio", "portfolio-optimization", "asset-allocation", "risk-parity", "hrp", "markowitz",
+            "black-litterman", "backtesting", "streamlit", "skfolio", "riskfolio-lib", "pyportfolioopt",
+            "bist", "tefas", "self-hosted", "quant-finance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Natural Language :: German",
+    "Natural Language :: Turkish",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Framework :: Streamlit",
+]
 authors = [
     { name = "Ozan Bayhan", email = "152163098+ozanbayhan@users.noreply.github.com" }
 ]
@@ -18,6 +38,13 @@ dependencies = [
     "streamlit[auth]>=1.67.0",
     "yfinance>=1.8.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ozanbayhan/portfolio-models"
+Demo = "https://portfolio-models.streamlit.app"
+Documentation = "https://ozanbayhan.github.io/portfolio-models"
+Issues = "https://github.com/ozanbayhan/portfolio-models/issues"
+Changelog = "https://github.com/ozanbayhan/portfolio-models/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["uv_build>=0.13.9,<0.14.0"]

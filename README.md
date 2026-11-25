@@ -1,187 +1,186 @@
-# portfolio-models
+<div align="center">
 
-Portföy optimizasyon modelleri tek bir komut satırı aracında toplandı. Aynı veri ve aynı backtest kurallarıyla yan yana karşılaştırılabilirler.
+# 📊 Portfolio Models
 
-Modellerin kendisi aktif olarak geliştirilen açık kaynak kütüphanelerden geliyor. Bu repo onları bir arada kullanmanızı sağlıyor ve **her hafta güncellemeleri otomatik çekiyor**:
+**Self-hostable portfolio optimisation & tracking — 24 models, one interface.**
 
-| Kütüphane | Ne katıyor |
+Compare Markowitz, risk parity, HRP, CVaR, Black-Litterman and more on the same data, backtest them walk-forward,
+track your real portfolio with transactions and dividends, and read plain-language commentary on every result.
+
+[![Live demo](https://img.shields.io/badge/demo-live-4F46E5?logo=streamlit&logoColor=white)](https://portfolio-models.streamlit.app)
+[![CI](https://github.com/ozanbayhan/portfolio-models/actions/workflows/ci.yml/badge.svg)](https://github.com/ozanbayhan/portfolio-models/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://github.com/ozanbayhan/portfolio-models/pkgs/container/portfolio-models)
+[![Python](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22C55E)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-online-0EA5E9)](https://ozanbayhan.github.io/portfolio-models)
+
+**English** · [Türkçe](README.tr.md) · [Deutsch](README.de.md)
+
+[**Try the live demo →**](https://portfolio-models.streamlit.app) &nbsp;·&nbsp; [Documentation](https://ozanbayhan.github.io/portfolio-models) &nbsp;·&nbsp; [Self-hosting](#-self-hosting)
+
+<img src="docs/assets/frontier.jpg" alt="Efficient frontier, risk contribution and automatic commentary" width="900">
+
+</div>
+
+---
+
+## Why Portfolio Models?
+
+Most portfolio tools give you **one** optimiser and a number. Portfolio Models puts **24 established models side by
+side** — built on the excellent [skfolio](https://github.com/skfolio/skfolio),
+[Riskfolio-Lib](https://github.com/dcajasn/Riskfolio-Lib) and [PyPortfolioOpt](https://github.com/PyPortfolio/PyPortfolioOpt) —
+tests them on data they have never seen, and **explains in plain language** what each result means and where it can
+mislead you.
+
+It is also a **private portfolio tracker** you can run on your own machine or server: positions, dated transactions,
+dividends, deposits and withdrawals, multi-currency cash, money-weighted (XIRR) and time-weighted (TWR) returns,
+and inflation-adjusted comparisons against BIST100, USD and gold.
+
+## ✨ Features
+
+| | |
 |---|---|
-| [skfolio](https://github.com/skfolio/skfolio) | Ana motor: Markowitz ailesi, risk paritesi, HRP/HERC/NCO, DRO, stacking, Black-Litterman, walk-forward backtest |
-| [Riskfolio-Lib](https://github.com/dcajasn/Riskfolio-Lib) | Geniş risk ölçüsü seti (CVaR, CDaR, EVaR…) |
-| [PyPortfolioOpt](https://github.com/PyPortfolio/PyPortfolioOpt) | Klasik etkin sınır ve Critical Line Algorithm |
+| 🧮 **24 optimisation models** | Equal weight, inverse volatility, min variance, max Sharpe (classic & shrunk), max Sortino, min CVaR / CDaR / max drawdown, max diversification, distributionally robust CVaR, risk parity (variance & CVaR), HRP, HERC, NCO, Schur, stacking, plus Riskfolio-Lib & PyPortfolioOpt variants |
+| 🔁 **Walk-forward backtests** | Train on a rolling window, hold, roll forward — results only from data the model could not see |
+| 📈 **Efficient frontier & risk contribution** | See where every model sits relative to the Markowitz frontier and which asset really drives risk |
+| 🧠 **Automatic commentary** | Rule-based, data-driven explanations: concentration, effective number of assets, risk sources, consensus between models, overfitting warnings |
+| 📚 **Model guide** | History (who, when, paper), core idea, how to read the results, strengths and cautions for every model, plus a metrics glossary |
+| 🎯 **Black-Litterman with your views** | Enter absolute or relative views and see exactly how they move the weights |
+| 🔒 **Weight limits** | Cap any single asset (e.g. max 25%) across all models that support constraints |
+| 💼 **Portfolio tracker** | Positions, dated buy/sell, dividends, deposits/withdrawals, average cost, realised & open P/L |
+| 📥 **Broker statement import** | CSV/Excel import that recognises Turkish, English and German column names and values; duplicate-safe |
+| 🏦 **TEFAS funds** | Upload price history from TEFAS exports or type it in; funds join charts and rebalancing |
+| ⚖️ **Rebalancing suggestions** | Exact buy/sell quantities to reach any model's target, whole shares for BIST, never overdrawing cash |
+| 📊 **Benchmarks & inflation** | Compare against BIST100, USD/TRY, gold and CPI (TCMB EVDS or OECD) — nominal and real returns |
+| 📧 **Weekly email summary** | Opt-in Monday digest of value, weekly change and stale fund prices |
+| 🌐 **Three languages** | Türkçe, English, Deutsch — UI, commentary, model guide and emails |
+| 👥 **Multi-user or single-user** | Google sign-in with per-user isolation, or zero-config local mode |
+| 🐳 **Self-hosting** | One-line `uvx`, Docker image, Docker Compose with Postgres and email scheduler |
 
-## Kurulum
+## 🚀 Quick start
 
-[uv](https://docs.astral.sh/uv/) gerekir (`brew install uv`).
+### 1. Try it online
+Open the **[live demo](https://portfolio-models.streamlit.app)** — no sign-up needed. Click **🎯 Try a sample portfolio** on
+the *My portfolio* page to see every feature with example data.
+
+### 2. Run it on your computer (one line)
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```bash
-git clone https://github.com/ozanbayhan/portfolio-models.git
-cd portfolio-models
-uv sync
+uvx --from git+https://github.com/ozanbayhan/portfolio-models portfolio-models serve
 ```
 
-## Web arayüzü
+Opens on <http://localhost:8501>. Runs in **local mode**: no sign-in, a single user, data stored in `~/.portfolio-models`.
 
-**Canlı:** https://portfolio-models.streamlit.app — her `main` güncellemesinde otomatik yenilenir.
-
-Yerelde:
+### 3. Run it with Docker
 
 ```bash
-uv run streamlit run app.py
+docker run -d --name portfolio-models -p 8501:8501 -v pm-data:/data ghcr.io/ozanbayhan/portfolio-models:latest
 ```
 
-Tarayıcıda açılır. Sembolleri ve modelleri seçin; ağırlıkları, backtest sonuçlarını, Black-Litterman görüşlerini ve korelasyonları sekmelerde görün.
+## 🐳 Self-hosting
 
-### 💼 Portföyüm: gerçek portföy takibi
+```bash
+git clone https://github.com/ozanbayhan/portfolio-models && cd portfolio-models
+cp .env.example .env            # optional: every setting has a sensible default
+docker compose up -d            # single user, SQLite in a volume
+```
 
-Uygulamanın **Portföyüm** sayfasında varlıklarınızı girip takip edebilirsiniz. Girişler üç sekmede yapılır:
+| Goal | Command / setting |
+|---|---|
+| Single user, zero config | `docker compose up -d` |
+| Many users with Google sign-in | set `PM_PUBLIC_URL`, `PM_OAUTH_CLIENT_ID`, `PM_OAUTH_CLIENT_SECRET`, `PM_COOKIE_SECRET` |
+| Postgres instead of SQLite | `docker compose --profile postgres up -d` and set `PM_DATABASE_URL` |
+| Weekly email summaries | `docker compose --profile email up -d` and set `SMTP_*` |
+| Up-to-date Turkish CPI | `PM_EVDS_API_KEY` (free key from TCMB EVDS) |
 
-| Sekme | Ne girersiniz | Ne elde edersiniz |
+👉 Full guide — reverse proxy (Caddy/Nginx), Google OAuth step by step, Supabase, backups, upgrades:
+**[docs/self-hosting.md](docs/self-hosting.md)**
+
+## 📸 Screenshots
+
+| Model analysis | Portfolio tracker |
+|---|---|
+| <img src="docs/assets/analysis.jpg" alt="Model analysis"> | <img src="docs/assets/portfolio.jpg" alt="Portfolio tracker"> |
+| **Holdings, allocation & value over time** | **Benchmarks & inflation** |
+| <img src="docs/assets/holdings.jpg" alt="Holdings"> | <img src="docs/assets/comparison.jpg" alt="Comparison"> |
+
+## 🧮 Models
+
+| Model | Idea | Origin |
 |---|---|---|
-| 📋 **Pozisyonlar** | Şu an elinizde olanlar: tür, sembol, miktar, isteğe bağlı ortalama maliyet | Hızlı başlangıç |
-| 🧾 **İşlemler** | Alım/satım, **temettü**, **para yatırma/çekme**: tarih, sembol, adet, fiyat ya da tutar; elle ya da **CSV/Excel'den toplu** (aracı kurum ekstresi veya şablon) | Miktar ve ortalama maliyet otomatik hesaplanır. Gerçekleşen K/Z, yıllık getiri (XIRR) ve o tarihlerde gerçekten elde olanlarla değer grafiği |
-| 📈 **Fon fiyatları** | TEFAS'tan indirilen CSV/Excel dosyası ya da tarih–fiyat tablosu (elle) | Fonlar değer grafiğine, günlük değişime ve yeniden dengelemeye katılır |
+| `equal_weighted` | 1/N — the benchmark every model must beat | DeMiguel, Garlappi & Uppal (2009) |
+| `inverse_volatility` | Weight ∝ 1/volatility | Practitioner rule |
+| `min_variance` | Lowest total volatility | Markowitz (1952) |
+| `max_sharpe` · `max_sharpe_shrunk` | Highest return per unit of risk | Tobin (1958), Sharpe (1966), Ledoit & Wolf (2004) |
+| `max_sortino` | Highest return per unit of downside risk | Sortino & van der Meer (1991) |
+| `min_cvar` | Smallest average loss on the worst 5% of days | Rockafellar & Uryasev (2000) |
+| `min_cdar` · `min_max_drawdown` | Smallest drawdowns | Chekhlov, Uryasev & Zabarankin (2003) |
+| `max_diversification` | Highest diversification ratio | Choueifaty & Coignard (2008) |
+| `dro_cvar` | CVaR robust to distribution shifts (Wasserstein) | Esfahani & Kuhn (2018) |
+| `risk_parity` · `risk_parity_cvar` | Equal risk contribution | Qian (2005), Maillard, Roncalli & Teïletche (2010) |
+| `hrp` · `hrp_cdar` | Hierarchical risk parity | López de Prado (2016) |
+| `herc` | Hierarchical equal risk contribution | Raffinot (2017) |
+| `nco` | Nested clustered optimisation | López de Prado (2019) |
+| `schur` | Schur complementary allocation | Cotton (2024) |
+| `stacking` | Ensemble of several models | Wolpert (1992) |
+| `riskfolio_*` · `pypfopt_*` | The same ideas from Riskfolio-Lib and PyPortfolioOpt, for cross-checking | — |
 
-- **Desteklenen varlıklar:** BIST hisseleri, TEFAS fonları, Yahoo Finance'teki her sembol (ABD hisseleri, ETF'ler, kripto…), gram altın ve nakit (TRY, USD, EUR…).
-- **TL değerleme:** Döviz cinsinden varlıklar güncel kurla, işlemler ise işlem günündeki kurla TL'ye çevrilir.
-- **Yeniden dengeleme:** Seçtiğiniz modele göre hangi varlıktan kaç adet alıp satmanız gerektiği listelenir. BIST hisseleri tam adete yuvarlanır; öneri hiçbir zaman eksi nakde düşürmez.
-- **Kayıt:** Giriş yaptıysanız pozisyonlar ve işlemler adlandırılarak, fon fiyatları da hesabınıza kaydedilir. Bunları yalnızca siz görürsünüz.
+Every model has a full entry in the in-app **📚 Models & guide** tab and in the [model guide](docs/models.md).
 
-**Karşılaştırma:** Portföyün zaman ağırlıklı getirisi (TWR) BIST100, dolar, gram altın ve enflasyonla (TÜFE, OECD) aynı grafikte karşılaştırılır. Dönem olarak 1 ay–tümü seçilebilir. Tabloda toplam, yıllık ve reel getiri yer alır. Reel getiri yalnızca TÜFE verisinin kapsadığı dönemlerde hesaplanır.
-
-**Nakit takibi:** İşlemlere para yatırma/çekme girerseniz nakit bakiyesi işlemlerden hesaplanır. Alımlar nakitten düşer; satışlar ve temettüler nakde eklenir. XIRR bu durumda yalnızca dış para akışlarıyla hesaplanır. Girmezseniz temettüler alınan gelir olarak getiriye eklenir.
-
-**İşlem dosyası içe aktarma:** *İşlemler → Dosyadan içe aktar* bölümünden şablonu indirebilir ya da aracı kurum ekstrenizi yükleyebilirsiniz. Tarih, işlem yönü (Al/Alış/Buy, Sat/Satış/Sell), sembol, adet ve fiyat sütunları farklı adlarla da tanınır. Aynı işlem iki kez eklenmez. İşlemleri CSV olarak dışa da aktarabilirsiniz.
-
-**TEFAS fonları:** TEFAS otomatik veri erişimini engellediği için fiyatlar sizden gelir. [tefas.gov.tr → Fon Verileri](https://www.tefas.gov.tr/tr/fon-verileri) sayfasından fonu ve tarih aralığını seçip **Excel** ya da **CSV** indirin ve *Fon fiyatları* sekmesinden yükleyin. Dosya okuyucu sütun adlarını ve Türkçe sayı biçimlerini (`2,512345`, `1.234,56`) otomatik tanır. Alternatif olarak tek bir güncel fiyatı pozisyon tablosuna yazabilirsiniz. Fiyat kaynağı önceliği şöyledir: elle girilen güncel fiyat, sonra yüklenen veya elle girilen geçmiş, sonra işlemdeki son fiyat.
-
-### 📧 Haftalık e-posta özeti
-
-Portföyüm sayfasındaki **📧 Haftalık e-posta özeti** anahtarını açan kullanıcılar, her pazartesi 09:00'da (TSİ) son kaydettikleri portföyün özetini e-postayla alır. Özette toplam değer, haftalık değişim, varlık bazında haftalık getiri ve fiyatı eskimiş fonlar bulunur. Gönderimi GitHub Actions ([weekly-report.yml](.github/workflows/weekly-report.yml)) yapar.
-
-Kurulum (bir kez): Gmail'de [uygulama şifresi](https://myaccount.google.com/apppasswords) oluşturun, ardından:
+## 🧑‍💻 Use it as a Python library or CLI
 
 ```bash
-bash scripts/setup_weekly_email.sh
-gh workflow run weekly-report.yml -f dry_run=false   # hemen bir deneme gönderimi
+uv add git+https://github.com/ozanbayhan/portfolio-models
+portfolio-models list                                    # all models
+portfolio-models weights  --bist THYAO ASELS --tickers GC=F AAPL
+portfolio-models backtest --bist THYAO ASELS --tickers GC=F --start 2020-01-01
 ```
 
-### Giriş ve portföy kaydetme
+```python
+from portfolio_models import bist, load_prices, to_returns, fit_weights, backtest, summarize
 
-Kullanıcılar Google hesaplarıyla giriş yapıp ayarlarını adlandırarak kaydedebilir. Kaydedilenler semboller, tarihler, modeller, backtest ayarları ve Black-Litterman görüşleri. Her kullanıcı **yalnızca kendi kayıtlarını** görür, yükler ve siler; bu kontrol sunucu tarafında, e-postaya göre yapılır. Uygulama girişsiz de kullanılabilir, ama kayıt için giriş gerekir.
-
-Sunucuda bu özelliği açmak için Streamlit Cloud → **Manage app → Settings → Secrets** alanına şunları girin:
-
-```toml
-[auth]
-redirect_uri = "https://portfolio-models.streamlit.app/oauth2callback"
-cookie_secret = "<rastgele uzun bir metin: python -c 'import secrets; print(secrets.token_hex(32))'>"
-client_id = "<Google OAuth istemci kimliği>"
-client_secret = "<Google OAuth istemci gizli anahtarı>"
-server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
-
-[connections.portfolios]
-url = "postgresql+psycopg://<Supabase session pooler bağlantı adresi>"
+returns = to_returns(load_prices(bist("THYAO", "ASELS") + ["GC=F", "AAPL"], start="2020-01-01"))
+print(fit_weights(returns, ["hrp", "risk_parity", "max_sharpe"], max_weight=0.4))
+print(summarize(backtest(returns, ["equal_weighted", "hrp", "risk_parity"])))
 ```
 
-Ayarlar yapılmazsa kayıt özelliği kapalı kalır, uygulamanın geri kalanı çalışmaya devam eder. Yerelde girişsiz denemek için `.streamlit/secrets.toml` dosyasına `local_mode = true` yazın; kayıtlar `portfolios.db` dosyasına yazılır.
+## 🏗️ Architecture
 
-### 🌐 Diller ve model rehberi
-
-Uygulama **Türkçe, İngilizce ve Almanca** kullanılabilir. Dil, kenar çubuğunun en üstündeki 🌐 seçiciyle değiştirilir; seçim adres çubuğuna (`?lang=en`) yazıldığı için paylaşılan linkler aynı dilde açılır. Haftalık e-posta, abonelik açılırken seçili olan dilde gönderilir.
-
-**📚 Modeller ve rehber** sekmesinde şunlar bulunur:
-
-- Her model için kim ve ne zaman geliştirdi (kaynak makaleyle), temel fikir, sonuçların nasıl okunacağı, güçlü yanı ve dikkat edilecekler.
-- Sharpe, Sortino, maks. düşüş, CVaR, etkin varlık sayısı, risk katkısı, walk-forward, TWR, XIRR ve reel getiri için kısa bir okuma sözlüğü.
-
-Çeviriler `src/portfolio_models/locales.py` dosyasındadır. Yeni bir metin eklendiğinde `tests/test_i18n.py` eksik çeviriyi yakalar.
-
-### 🧠 Otomatik yorumlar
-
-Her ekranda, sonuçları sade Türkçe açıklayan veriye dayalı yorumlar bulunur:
-
-- **Ağırlıklar:** Her model için ne yaptığı, ağırlığı nereye yığdığı, etkin varlık sayısı, riskin hangi varlıktan geldiği, beklenen getiri ve oynaklık (eşit ağırlıkla karşılaştırmalı) ve dikkat edilmesi gerekenler. Ayrıca modellerin ortak görüşü, en çok ayrıştıkları varlık ve varlıkların oynaklık, getiri ve korelasyon özellikleri.
-- **Backtest:** En iyi ve en kötü modeller, eşit ağırlığı geçenler, getiri ile düşüş arasındaki denge, aşırı uyum uyarısı.
-- **Black-Litterman:** Görüşlerinizin hangi varlıkların payını ne kadar değiştirdiği.
-- **Portföyüm / yeniden dengeleme:** En büyük açık, sapma düzeyi ve kademeli geçiş önerisi.
-
-Yorumlar kural tabanlıdır, dış servis kullanılmaz; her cümle ekrandaki sayılardan hesaplanır.
-
-## Komut satırı
-
-```bash
-# Tüm modelleri listele
-uv run portfolio-models list
-
-# Güncel ağırlıklar: BIST hisseleri + altın
-uv run portfolio-models weights --bist THYAO ASELS EREGL GARAN BIMAS --tickers GC=F
-
-# Walk-forward backtest: 1 yıl eğit, ayda bir yeniden dengele, tüm modelleri karşılaştır
-uv run portfolio-models backtest --bist THYAO ASELS EREGL GARAN BIMAS --tickers GC=F --start 2020-01-01
-
-# Sadece seçili modeller, kendi CSV dosyanızla
-uv run portfolio-models backtest --csv fiyatlar.csv --models hrp risk_parity max_sharpe
+```
+src/portfolio_models/
+├── models.py, adapters.py        24 models behind one scikit-learn-style interface
+├── backtest.py, charts.py        walk-forward backtests, efficient frontier, risk contribution
+├── holdings.py                   positions, transactions, cash, valuation, rebalancing, XIRR
+├── benchmarks.py                 TWR, BIST100/USD/gold, CPI (TCMB EVDS / OECD)
+├── insights.py, model_guide.py   commentary and model guide
+├── i18n.py, locales.py           Türkçe / English / Deutsch
+├── store.py, report.py           per-user storage (SQLite/Postgres), weekly email
+└── web/                          Streamlit UI (app.py, holdings_page.py, ui.py)
 ```
 
-Çıktılar `results/` klasörüne yazılır:
-- `weights.csv`
-- `backtest_summary.csv`
-- `cumulative_returns.html`: etkileşimli grafik
+Data stays where you run it. Prices come from Yahoo Finance; inflation from TCMB EVDS or OECD.
 
-Veri kaynakları:
-- `--tickers`: Yahoo Finance sembolleri (`AAPL`, `GC=F`, `USDTRY=X`, `BTC-USD`…)
-- `--bist`: BIST sembolleri; `.IS` eki otomatik eklenir
-- `--csv`: ilk sütunu tarih, diğer sütunları fiyat olan kendi dosyanız
+## 🗺️ Roadmap
 
-Python içinden kullanım için [examples/quickstart.py](examples/quickstart.py) dosyasına bakın. Kendi görüşlerinizi modele katmak için [examples/black_litterman.py](examples/black_litterman.py) örneğini kullanın.
+See [ROADMAP.md](ROADMAP.md). Highlights: per-asset min/max and sector constraints, transaction costs in backtests,
+PDF reports, price alerts, broker-specific import presets, more languages. Ideas welcome in
+[Discussions](https://github.com/ozanbayhan/portfolio-models/discussions).
 
-## Modeller
+## 🤝 Contributing
 
-| Ad | Açıklama |
-|---|---|
-| `equal_weighted` | Eşit ağırlık (1/N) |
-| `inverse_volatility` | Volatilitenin tersiyle ağırlık |
-| `min_variance` | Minimum varyans (Markowitz) |
-| `max_sharpe` | Maksimum Sharpe oranı |
-| `max_sharpe_shrunk` | Maks. Sharpe; büzülmüş beklenti ve Ledoit-Wolf kovaryans |
-| `max_sortino` | Maksimum Sortino oranı |
-| `min_cvar` | Minimum CVaR (%95) |
-| `min_cdar` | Minimum CDaR (drawdown riski) |
-| `min_max_drawdown` | Minimum maksimum düşüş |
-| `max_diversification` | Maksimum çeşitlendirme oranı |
-| `dro_cvar` | Dağılımsal olarak dayanıklı CVaR (Wasserstein) |
-| `risk_parity` | Risk paritesi (varyans) |
-| `risk_parity_cvar` | Risk paritesi (CVaR) |
-| `hrp` | Hiyerarşik risk paritesi |
-| `hrp_cdar` | HRP, CDaR ile |
-| `herc` | Hiyerarşik eşit risk katkısı |
-| `nco` | İç içe kümeler optimizasyonu |
-| `schur` | Schur tamamlayıcı tahsis |
-| `stacking` | Birden çok modeli birleştiren topluluk |
-| `riskfolio_hrp` | Riskfolio-Lib HRP |
-| `riskfolio_max_sharpe_cvar` | Riskfolio-Lib maks. getiri/CVaR |
-| `riskfolio_min_cdar` | Riskfolio-Lib minimum CDaR |
-| `pypfopt_max_sharpe` | PyPortfolioOpt maks. Sharpe |
-| `pypfopt_cla_min_vol` | PyPortfolioOpt CLA min. volatilite |
+Contributions of all sizes are welcome — models, translations, broker import formats, docs. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md) and look for issues labelled
+[`good first issue`](https://github.com/ozanbayhan/portfolio-models/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
-**Yeni model eklemek:** [src/portfolio_models/models.py](src/portfolio_models/models.py) içindeki `MODELS` sözlüğüne bir satır ekleyin. skfolio'daki her tahminci doğrudan çalışır. Başka bir kütüphanenin modelini eklemek için [adapters.py](src/portfolio_models/adapters.py) dosyasına `getiriler -> ağırlıklar` döndüren bir fonksiyon yazmanız yeterli.
+If this project is useful to you, **please give it a ⭐** — it helps others find it.
 
-## Güncellemeler nasıl geliyor?
+## ⚠️ Disclaimer
 
-- **Dependabot** her pazartesi kütüphanelerin yeni sürümlerini kontrol eder ve tek bir Pull Request açar.
-- **CI** her PR'da tüm modelleri sentetik veriyle test eder. Testler yeşilse PR'ı birleştirin.
-- **Haftalık "en yeni sürümler" testi**, kütüphanelerin en son halleriyle çalışıp çalışmadığını kontrol eder. Bir güncelleme bir modeli bozarsa Actions sekmesinde görürsünüz.
-- Kendi bilgisayarınızda güncellemek için `git pull && uv sync` yeterli. Kütüphaneleri hemen en yeni sürüme çekmek için `uv lock --upgrade && uv sync` çalıştırın.
+For education and research only. **Not investment advice.** Past performance does not guarantee future results.
 
-## Bilinen sorunlar
+## License
 
-- `pypfopt_hrp` kapalı: PyPortfolioOpt 1.6.0 güncel scipy ile uyumsuz. Upstream düzeltilince [models.py](src/portfolio_models/models.py) dosyasındaki satırı açın. HRP için `hrp` veya `riskfolio_hrp` kullanın.
-
-## Uyarı
-
-Bu araç eğitim ve araştırma amaçlıdır, yatırım tavsiyesi değildir. Geçmiş performans gelecekteki sonuçları garanti etmez.
-
-## Lisans
-
-MIT
+[MIT](LICENSE) © Ozan Bayhan. Built on [skfolio](https://github.com/skfolio/skfolio),
+[Riskfolio-Lib](https://github.com/dcajasn/Riskfolio-Lib), [PyPortfolioOpt](https://github.com/PyPortfolio/PyPortfolioOpt)
+and [Streamlit](https://streamlit.io).
