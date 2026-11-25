@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-11-25
+
 ### Added
 - **US and German inflation:** the comparison can now run in USD against US CPI (FRED, BLS fallback) with S&P 500,
   or in EUR against German CPI (Deutsche Bundesbank / Destatis VPI) with DAX — alongside TRY and Turkish CPI.
@@ -48,6 +50,7 @@ All notable changes to this project are documented here. The format follows
 - 24 portfolio models on skfolio, Riskfolio-Lib and PyPortfolioOpt behind one interface.
 - Walk-forward backtests, CLI (`list`, `weights`, `backtest`), Streamlit UI, CI.
 
-[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ozanbayhan/portfolio-models/releases/tag/v0.2.0
