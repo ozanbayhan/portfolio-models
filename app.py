@@ -36,7 +36,7 @@ def _reload_own_modules_if_changed() -> None:
     for name in ("portfolio_models.data", "portfolio_models.adapters", "portfolio_models.models",
                  "portfolio_models.backtest", "portfolio_models.store", "portfolio_models.fund_prices",
                  "portfolio_models.holdings", "portfolio_models.trades_io", "portfolio_models.benchmarks",
-                 "portfolio_models.report",
+                 "portfolio_models.report", "portfolio_models.insights",
                  "portfolio_models", "holdings_page"):
         if name in sys.modules:
             importlib.reload(sys.modules[name])
@@ -52,6 +52,7 @@ from skfolio.prior import BlackLitterman
 from portfolio_models import backtest, bist, fit_weights, list_models, summarize, to_returns
 from portfolio_models.data import clean_prices, load_prices
 from portfolio_models import store
+from portfolio_models import insights
 
 st.set_page_config(page_title="Portföy Modelleri", page_icon="📊", layout="wide")
 
@@ -414,6 +415,17 @@ def analysis_page() -> None:
             st.plotly_chart(fig, width="stretch")
             st.download_button("CSV indir", weights.to_csv().encode(), "weights.csv", "text/csv")
 
+            st.subheader("🧠 Yorumlar")
+            st.caption("Ekrandaki ağırlıklardan ve seçilen dönemin fiyat verisinden otomatik üretilir. "
+                       "Eğitim amaçlıdır, yatırım tavsiyesi değildir.")
+            with st.container(border=True):
+                st.markdown("**Genel tablo**")
+                st.markdown("\n".join(f"- {line}" for line in insights.consensus(weights) + insights.asset_facts(returns)))
+            baseline = insights.weight_metrics(pd.Series(1 / returns.shape[1], index=returns.columns), returns)
+            for model_name in weights.columns:
+                with st.expander(f"{model_name} — {MODEL_DESC.get(model_name, '')}"):
+                    st.markdown(insights.model_comment(model_name, weights[model_name], returns, baseline))
+
     # --- Backtest ----------------------------------------------------------------
 
     with tab_bt:
@@ -447,6 +459,9 @@ def analysis_page() -> None:
                     table.style.format(fmt).highlight_max(subset=["Sharpe"], props="background-color:#c6efce;color:#111;font-weight:600"),
                     width="stretch",
                 )
+                with st.container(border=True):
+                    st.markdown("**🧠 Yorum**")
+                    st.markdown("\n".join(f"- {line}" for line in insights.backtest_comment(table)))
                 st.plotly_chart(population.plot_cumulative_returns(), width="stretch")
                 st.plotly_chart(population.plot_drawdowns(), width="stretch")
                 st.plotly_chart(population.plot_composition(), width="stretch")
@@ -515,6 +530,11 @@ def analysis_page() -> None:
                 fig = px.bar(long, x="Varlık", y="Ağırlık", color="Model", barmode="group")
                 fig.update_layout(yaxis_tickformat=".0%", legend_title=None)
                 st.plotly_chart(fig, width="stretch")
+                with st.container(border=True):
+                    st.markdown("**🧠 Yorum**")
+                    lines = insights.black_litterman_comment(
+                        pd.Series(base.weights_, index=assets), pd.Series(bl.weights_, index=assets), views)
+                    st.markdown("\n".join(f"- {line}" for line in lines))
             except Exception as exc:  # noqa: BLE001
                 st.error(f"Hesaplanamadı: {exc}")
 

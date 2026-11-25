@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from portfolio_models import fit_weights, store
+from portfolio_models.insights import rebalance_comment
 from portfolio_models.report import set_weekly, weekly_enabled
 from portfolio_models.benchmarks import (
     BENCHMARK_TICKERS,
@@ -789,6 +790,9 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
         ).map(_color, subset=["İşlem"]),
         hide_index=True, width="stretch",
     )
+    with st.container(border=True):
+        st.markdown("**🧠 Yorum**")
+        st.markdown("\n".join(f"- {line}" for line in rebalance_comment(reb, model)))
     if has_cash:
         cash_after = reb.attrs.get("cash_after", 0.0)
         if cash_after < -1:

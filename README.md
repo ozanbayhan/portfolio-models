@@ -86,6 +86,17 @@ url = "postgresql+psycopg://<Supabase session pooler bağlantı adresi>"
 
 Ayarlar yapılmazsa kayıt özelliği kapalı kalır, uygulamanın geri kalanı çalışmaya devam eder. Yerelde girişsiz denemek için `.streamlit/secrets.toml` dosyasına `local_mode = true` yazın; kayıtlar `portfolios.db` dosyasına yazılır.
 
+### 🧠 Otomatik yorumlar
+
+Her ekranda, sonuçları sade Türkçe açıklayan veriye dayalı yorumlar bulunur:
+
+- **Ağırlıklar:** Her model için ne yaptığı, ağırlığı nereye yığdığı, etkin varlık sayısı, riskin hangi varlıktan geldiği, beklenen getiri ve oynaklık (eşit ağırlıkla karşılaştırmalı) ve dikkat edilmesi gerekenler. Ayrıca modellerin ortak görüşü, en çok ayrıştıkları varlık ve varlıkların oynaklık, getiri ve korelasyon özellikleri.
+- **Backtest:** En iyi ve en kötü modeller, eşit ağırlığı geçenler, getiri ile düşüş arasındaki denge, aşırı uyum uyarısı.
+- **Black-Litterman:** Görüşlerinizin hangi varlıkların payını ne kadar değiştirdiği.
+- **Portföyüm / yeniden dengeleme:** En büyük açık, sapma düzeyi ve kademeli geçiş önerisi.
+
+Yorumlar kural tabanlıdır, dış servis kullanılmaz; her cümle ekrandaki sayılardan hesaplanır.
+
 ## Komut satırı
 
 ```bash
