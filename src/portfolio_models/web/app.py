@@ -50,7 +50,9 @@ from skfolio import RiskMeasure
 from skfolio.optimization import MeanRisk, ObjectiveFunction
 from skfolio.prior import BlackLitterman
 
-from portfolio_models import backtest, bist, fit_weights, insights, list_models, model_guide, store, summarize, to_returns
+from portfolio_models import backtest, bist, charts, fit_weights, insights, list_models, model_guide, store, summarize, to_returns
+from portfolio_models.models import supports_max_weight
+from portfolio_models.web import ui
 from portfolio_models.data import clean_prices, load_prices
 from portfolio_models.i18n import LANGS, set_lang, t
 
@@ -71,6 +73,7 @@ def _initial_lang() -> str:
 st.session_state["lang"] = _initial_lang()
 set_lang(st.session_state["lang"])
 st.set_page_config(page_title=t("Portföy Modelleri"), page_icon="📊", layout="wide")
+ui.setup()
 
 PRIVACY = {
     "tr": """
@@ -272,6 +275,7 @@ DEFAULTS = {
     "models": DEFAULT_MODELS,
     "train": 252,
     "test": 21,
+    "max_w": 100,
     "bl_views": None,
 }
 for k, v in DEFAULTS.items():
@@ -282,7 +286,7 @@ st.session_state.setdefault("end", date.today())
 st.session_state.setdefault("bl_version", 0)
 st.session_state.setdefault("source", SOURCE_YAHOO)
 # Sayfa değiştirince Streamlit, ekranda olmayan widget'ların değerlerini siler; korumak için yeniden atıyoruz.
-for _k in ("bist_text", "other_text", "start", "end", "models", "train", "test", "source"):
+for _k in ("bist_text", "other_text", "start", "end", "models", "train", "test", "max_w", "source"):
     st.session_state[_k] = st.session_state[_k]
 
 
@@ -317,6 +321,7 @@ def current_config() -> dict:
         "models": list(ss.models),
         "train": ss.train,
         "test": ss.test,
+        "max_w": ss.max_w,
         "bl_views": ss.get("bl_current"),
     }
 
@@ -331,6 +336,7 @@ def apply_config(cfg: dict) -> None:
     ss.models = [m for m in cfg.get("models", DEFAULT_MODELS) if m in model_desc()]
     ss.train = int(cfg.get("train", 252))
     ss.test = int(cfg.get("test", 21))
+    ss.max_w = int(cfg.get("max_w", 100))
     ss.bl_loaded = cfg.get("bl_views")
     ss.bl_version += 1  # görüş tablosunu yeniden oluştur
     ss.pop("bt", None)
@@ -482,6 +488,10 @@ def analysis_page() -> None:
             key="models",
         )
         st.button(t("Tümünü seç"), width="stretch", on_click=select_all_models)
+        max_w = st.slider(t("Tek varlık üst sınırı (%)"), 10, 100, step=5, key="max_w",
+                          help=t("Hiçbir varlığa bu orandan fazla pay verilmez. 100 = sınır yok. Sınırı destekleyen "
+                                 "modellere uygulanır (eşit ağırlık, NCO, stacking ve diğer kütüphanelerin modelleri hariç)."))
+        max_weight = None if max_w >= 100 else max_w / 100
 
         st.header("Backtest")
         train = st.slider(t("Eğitim penceresi (iş günü)"), 63, 756, step=21, help=t("252 ≈ 1 yıl"), key="train")
@@ -489,13 +499,11 @@ def analysis_page() -> None:
 
     # --- Veri yükleme ------------------------------------------------------------
 
-    st.title(t("📊 Model analizi"))
     lang = st.session_state["lang"]
-    st.caption(
-        "skfolio · Riskfolio-Lib · PyPortfolioOpt — "
-        f"[GitHub](https://github.com/ozanbayhan/portfolio-models) · [{t('Gizlilik')}](?page=privacy&lang={lang}) · "
-        f"[{t('Koşullar')}](?page=terms&lang={lang}) · " + t("Eğitim amaçlıdır, yatırım tavsiyesi değildir.")
-    )
+    ui.hero(t("📊 Model analizi"),
+            t("24 portföy optimizasyon modelini aynı veriyle karşılaştırın: ağırlıklar, walk-forward backtest, "
+              "etkin sınır ve otomatik yorumlar."),
+            ["skfolio", "Riskfolio-Lib", "PyPortfolioOpt", t("BIST · TEFAS · ABD · altın · kripto")])
 
     try:
         if source == SOURCE_CSV:
@@ -520,9 +528,9 @@ def analysis_page() -> None:
         st.stop()
 
     m1, m2, m3 = st.columns(3)
-    m1.metric(t("Varlık"), prices.shape[1])
+    m1.metric(t("Varlık sayısı"), prices.shape[1])
     m2.metric(t("Gün"), len(prices))
-    m3.metric(t("Dönem"), f"{prices.index[0]:%d.%m.%Y} → {prices.index[-1]:%d.%m.%Y}")
+    m3.metric(t("Dönem"), f"{prices.index[0]:%m.%Y} → {prices.index[-1]:%m.%Y}")
 
     tab_w, tab_bt, tab_bl, tab_data, tab_info = st.tabs(
         [t("Ağırlıklar"), "Backtest", "Black-Litterman", t("Veri"), t("📚 Modeller ve rehber")]
@@ -541,8 +549,12 @@ def analysis_page() -> None:
         st.caption(t("Her model seçilen dönemin tamamıyla eğitilir; bugün kurulacak portföyü gösterir."))
         errors: list = []
         with st.spinner(t("Modeller eğitiliyor…")):
-            weights = fit_weights(returns, models, on_error=lambda n, e: errors.append((n, e)))
+            weights = fit_weights(returns, models, on_error=lambda n, e: errors.append((n, e)), max_weight=max_weight)
         show_errors(errors)
+        if max_weight is not None:
+            skipped = [m for m in models if not supports_max_weight(m)]
+            st.caption(t("Tek varlık üst sınırı: {x}.", x=insights.pct(max_weight, 0))
+                       + (" " + t("Sınırı desteklemeyen modeller: {models}.", models=", ".join(skipped)) if skipped else ""))
         if not weights.empty:
             st.dataframe(
                 weights.style.format("{:.1%}").background_gradient(cmap="Blues", axis=None),
@@ -553,6 +565,24 @@ def analysis_page() -> None:
             fig.update_layout(yaxis_tickformat=".0%", height=450, legend_title=None)
             st.plotly_chart(fig, width="stretch")
             st.download_button(t("CSV indir"), weights.to_csv().encode(), "weights.csv", "text/csv")
+
+            c_ef, c_rc = st.columns(2)
+            with c_ef:
+                st.markdown(t("**Etkin sınır**"))
+                st.caption(t("Gri eğri, her risk düzeyinde ulaşılabilecek en yüksek getiri (Markowitz). Eğriye yakın "
+                             "modeller verimli; elmaslar tek tek varlıklar."))
+                try:
+                    st.plotly_chart(charts.frontier_figure(returns, weights, {
+                        "frontier": t("Etkin sınır"), "assets": t("Varlıklar"),
+                        "x": t("Yıllık oynaklık"), "y": t("Yıllık beklenen getiri")}, max_weight=max_weight),
+                        width="stretch")
+                except Exception as exc:  # noqa: BLE001
+                    st.caption(t("Etkin sınır hesaplanamadı: {err}", err=exc))
+            with c_rc:
+                st.markdown(t("**Risk katkısı**"))
+                st.caption(t("Her modelde toplam riskin varlıklara dağılımı. Sermaye payından farklıdır: oynak bir "
+                             "varlık küçük payla bile riskin çoğunu taşıyabilir."))
+                st.plotly_chart(charts.risk_figure(weights, returns, {"y": t("Riskteki pay")}), width="stretch")
 
             st.subheader(t("🧠 Yorumlar"))
             st.caption(t("Ekrandaki ağırlıklardan ve seçilen dönemin fiyat verisinden otomatik üretilir. "
@@ -579,12 +609,14 @@ def analysis_page() -> None:
         if len(returns) <= train + test:
             st.warning(t("Bu ayarlar için veri kısa; başlangıç tarihini geriye alın veya eğitim penceresini küçültün."))
         else:
-            bt_key = (tuple(returns.columns), str(returns.index[0]), str(returns.index[-1]), tuple(models), train, test)
+            bt_key = (tuple(returns.columns), str(returns.index[0]), str(returns.index[-1]), tuple(models), train, test,
+                      max_weight)
             if st.button(t("Backtest'i çalıştır"), type="primary"):
                 errors = []
                 with st.spinner(t("{n} model test ediliyor…", n=len(models))):
                     population = backtest(
-                        returns, models, train_size=train, test_size=test, on_error=lambda n, e: errors.append((n, e))
+                        returns, models, train_size=train, test_size=test, on_error=lambda n, e: errors.append((n, e)),
+                        max_weight=max_weight,
                     )
                 st.session_state["bt"] = (bt_key, population, errors)
             saved = st.session_state.get("bt")
@@ -708,6 +740,8 @@ def analysis_page() -> None:
             year = model_guide.info(name, "year")
             with st.expander(f"{name} — {desc}" + (f" · {year}" if year and year != "—" else "")):
                 st.markdown(model_guide.markdown(name))
+
+    ui.footer()
 
 
 # --- Sayfalar ----------------------------------------------------------------

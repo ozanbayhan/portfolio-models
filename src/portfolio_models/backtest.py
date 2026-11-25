@@ -33,6 +33,7 @@ def fit_weights(
     returns: pd.DataFrame,
     models: list[str] | None = None,
     on_error: Callable[[str, Exception], None] = _report,
+    max_weight: float | None = None,
 ) -> pd.DataFrame:
     """Her modeli tüm veriyle eğitir; satır = varlık, sütun = model olan ağırlık tablosu döner."""
     out: dict[str, pd.Series] = {}
@@ -40,7 +41,7 @@ def fit_weights(
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                est = get_model(name).fit(returns)
+                est = get_model(name, max_weight).fit(returns)
             out[name] = pd.Series(est.weights_, index=returns.columns)
         except Exception as exc:  # noqa: BLE001 - bir model çökerse diğerleri sürsün
             on_error(name, exc)
@@ -53,6 +54,7 @@ def backtest(
     train_size: int = 252,
     test_size: int = 21,
     on_error: Callable[[str, Exception], None] = _report,
+    max_weight: float | None = None,
 ) -> Population:
     """Walk-forward backtest: train_size gün eğit, test_size gün tut, kaydır, tekrarla."""
     cv = WalkForward(train_size=train_size, test_size=test_size)
@@ -62,7 +64,7 @@ def backtest(
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 pred = cross_val_predict(
-                    get_model(name), returns, cv=cv, portfolio_params={"name": name}
+                    get_model(name, max_weight), returns, cv=cv, portfolio_params={"name": name}
                 )
             portfolios.append(pred)
         except Exception as exc:  # noqa: BLE001

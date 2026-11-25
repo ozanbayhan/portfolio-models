@@ -81,6 +81,20 @@ EXAMPLE_ROWS = [
     {"Tür": KIND_CASH, "Sembol": "TRY", "Miktar": 10000.0, "Ort. maliyet": None},
 ]
 DEFAULT_NAME = "Portföyüm"
+DEMO_NAME = "Örnek portföy"
+# Tek tıkla deneme: işlem geçmişi, para yatırma, temettü, dolar hesabı ve TEFAS fonu içerir
+DEMO_ROWS = [{"Tür": KIND_GOLD, "Sembol": "", "Miktar": 20.0, "Ort. maliyet": 2050.0}]
+DEMO_TXNS = [
+    {"Tarih": "2024-01-02", "İşlem": "Para yatır", "Tür": KIND_CASH, "Sembol": "TRY", "Tutar": 250000.0},
+    {"Tarih": "2024-01-03", "İşlem": "Para yatır", "Tür": KIND_CASH, "Sembol": "USD", "Tutar": 3000.0},
+    {"Tarih": "2024-01-05", "İşlem": "Al", "Tür": KIND_BIST, "Sembol": "THYAO", "Adet": 200.0, "Fiyat": 245.0},
+    {"Tarih": "2024-01-08", "İşlem": "Al", "Tür": KIND_BIST, "Sembol": "BIMAS", "Adet": 150.0, "Fiyat": 310.0},
+    {"Tarih": "2024-01-10", "İşlem": "Al", "Tür": KIND_YAHOO, "Sembol": "AAPL", "Adet": 10.0, "Fiyat": 185.0},
+    {"Tarih": "2024-02-01", "İşlem": "Al", "Tür": KIND_FUND, "Sembol": "TTE", "Adet": 20000.0, "Fiyat": 1.25},
+    {"Tarih": "2024-06-14", "İşlem": "Temettü", "Tür": KIND_BIST, "Sembol": "BIMAS", "Tutar": 1050.0},
+    {"Tarih": "2025-03-03", "İşlem": "Sat", "Tür": KIND_BIST, "Sembol": "THYAO", "Adet": 50.0, "Fiyat": 315.0},
+    {"Tarih": "2025-06-02", "İşlem": "Al", "Tür": KIND_BIST, "Sembol": "ASELS", "Adet": 300.0, "Fiyat": 125.0},
+]
 FUND_KIND = "fund_prices"  # kayıt türü (store)
 PERIODS = {"1 ay": 30, "3 ay": 91, "6 ay": 182, "1 yıl": 365, "Yılbaşından": "ytd", "Tümü": None}
 
@@ -204,6 +218,13 @@ def _on_delete(engine, email):
 def _on_new():
     _set_data([], [], DEFAULT_NAME)
     st.session_state.hold_pick = None
+
+
+def _on_demo():
+    _set_data([dict(r) for r in DEMO_ROWS], [dict(r) for r in DEMO_TXNS], t(DEMO_NAME))
+    st.session_state.hold_pick = None
+    st.session_state.hold_flash = ("info", t("Örnek portföy yüklendi: işlem geçmişi, temettü, dolar hesabı ve bir "
+                                             "TEFAS fonu içeriyor. Kendi verilerinizi girmek için tabloları temizleyin."))
 
 
 def _persist_funds(engine, email, codes) -> str | None:
@@ -524,11 +545,13 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
                  ("txn_up_ver", 0)):
         ss.setdefault(k, v)
 
-    st.title(t("💼 Portföyüm"))
-    st.caption(t(
-        "Varlıklarınızı girin; güncel değer, kâr/zarar, geçmiş performans ve modele göre yeniden dengeleme önerisi "
-        "hesaplanır. Fiyatlar Yahoo Finance'ten (BIST ~15 dk gecikmeli). Eğitim amaçlıdır, yatırım tavsiyesi değildir."
-    ))
+    from portfolio_models.web import ui
+
+    ui.hero(t("💼 Portföyüm"),
+            t("Varlıklarınızı girin; güncel değer, kâr/zarar, geçmiş performans ve modele göre yeniden dengeleme önerisi "
+              "hesaplanır. Fiyatlar Yahoo Finance'ten (BIST ~15 dk gecikmeli). Eğitim amaçlıdır, yatırım tavsiyesi değildir."),
+            [t("BIST · TEFAS · ABD · altın · kripto"), t("İşlem geçmişi ve temettü"), "XIRR · TWR",
+             t("Enflasyona göre reel getiri")])
 
     engine, email = user_store()
 
@@ -556,10 +579,10 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
 
     # --- Kayıt çubuğu
     with st.container(border=True):
+        show_flash("hold_flash")
         if engine is None:
             st.caption("🔒 " + email + " " + t("Girdikleriniz bu oturum kapanınca silinir."))
         else:
-            show_flash("hold_flash")
             try:
                 saved_names = [p["name"] for p in store.list_portfolios(engine, email, kind="holdings")]
             except Exception as exc:  # noqa: BLE001
@@ -600,7 +623,11 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     tab_pos, tab_txn, tab_fund = st.tabs([t("📋 Pozisyonlar"), t("🧾 İşlemler"), t("📈 Fon fiyatları")])
     with tab_pos:
         _positions_tab()
-        st.button(t("Tüm tabloları temizle"), on_click=_on_new, help=t("Pozisyonları ve işlemleri boşaltır."))
+        b1, b2, _ = st.columns([1, 1, 2])
+        b1.button(t("Tüm tabloları temizle"), on_click=_on_new, help=t("Pozisyonları ve işlemleri boşaltır."),
+                  width="stretch")
+        b2.button(t("🎯 Örnek portföyle dene"), on_click=_on_demo, width="stretch",
+                  help=t("İşlem geçmişi, temettü ve nakit takibini gösteren hazır bir örnek yükler."))
     with tab_txn:
         _transactions_tab(summary)
     # İşlem tablosu bu çalıştırmada değiştiyse güncel haliyle yeniden hesapla
@@ -747,6 +774,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     for col, fmt in (("Maliyet (TL)", "₺{:,.0f}"), ("K/Z (TL)", "₺{:+,.0f}")):
         shown[col] = [("" if pd.isna(v) else _localize(fmt.format(v))) for v in shown[col]]
     shown["K/Z %"] = ["" if pd.isna(v) else pct(v, sign=True) for v in shown["K/Z %"]]
+    shown["Günlük %"] = ["" if v is None or pd.isna(v) else pct(v, 2, sign=True) for v in shown["Günlük %"]]
     shown["Fiyat tarihi"] = [("" if v is None or pd.isna(v) else pd.Timestamp(v).strftime("%d.%m.%Y"))
                              for v in shown["Fiyat tarihi"]]
     shown["Tür"] = shown["Tür"].map(t)
@@ -756,7 +784,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
         shown.style.format(
             {t("Miktar"): _num, t("Son fiyat"): lambda v: _localize(f"{v:,.4g}"),
              t("Değer (TL)"): lambda v: "₺" + _localize(f"{v:,.0f}"),
-             t("Günlük %"): lambda v: pct(v, 2, sign=True), t("Ağırlık"): lambda v: pct(v)},
+             t("Ağırlık"): lambda v: pct(v)},
             na_rep="",
         ),
         hide_index=True, width="stretch",
@@ -779,7 +807,7 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
 
     if trades:
         qty = quantity_timeline(base_qty, trades, prices_try.index, cash=cash_moves)
-        start = first_trade - pd.Timedelta(days=3)
+        start = first_trade
         vals = value_series(qty, prices_try)
         vals = vals[vals.index >= start]
         port_vals, port_in = vals, inflows_by_day(flows, vals.index)
@@ -875,3 +903,5 @@ def holdings_page(user_store, show_flash, model_desc: dict[str, str]) -> None:
     if total and not math.isnan(turnover):
         st.caption(t("Toplam işlem hacmi: {x} — portföy değerine oranı {r}. Komisyon ve vergiler dahil değildir.",
                      x=_fmt_tl(turnover), r=pct(turnover / total, 0)))
+
+    ui.footer()

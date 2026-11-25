@@ -623,4 +623,44 @@ CATALOG: dict[str, dict[str, str]] = {
     "Portföy değeri: {value}. Bu hafta: {change}. Ayrıntılar: {url}": E(
         "Portfolio value: {value}. This week: {change}. Details: {url}",
         "Portfoliowert: {value}. Diese Woche: {change}. Details: {url}"),
+
+    # --- Ekran iyileştirmeleri, grafikler, örnek portföy ----------------------------------------
+    "**Etkin sınır**": E("**Efficient frontier**", "**Effiziente Grenze**"),
+    "**Risk katkısı**": E("**Risk contribution**", "**Risikobeitrag**"),
+    "24 portföy optimizasyon modelini aynı veriyle karşılaştırın: ağırlıklar, walk-forward backtest, etkin sınır ve otomatik yorumlar.": E(
+        "Compare 24 portfolio optimisation models on the same data: weights, walk-forward backtest, efficient frontier and automatic commentary.",
+        "Vergleichen Sie 24 Portfolio-Optimierungsmodelle mit denselben Daten: Gewichte, Walk-Forward-Backtest, effiziente Grenze und automatische Kommentare."),
+    "BIST · TEFAS · ABD · altın · kripto": E("BIST · TEFAS · US · gold · crypto", "BIST · TEFAS · USA · Gold · Krypto"),
+    "Enflasyona göre reel getiri": E("Inflation-adjusted returns", "Inflationsbereinigte Renditen"),
+    "Etkin sınır": E("Efficient frontier", "Effiziente Grenze"),
+    "Etkin sınır hesaplanamadı: {err}": E("Could not compute the efficient frontier: {err}",
+                                          "Effiziente Grenze konnte nicht berechnet werden: {err}"),
+    "Gri eğri, her risk düzeyinde ulaşılabilecek en yüksek getiri (Markowitz). Eğriye yakın modeller verimli; elmaslar tek tek varlıklar.": E(
+        "The grey curve is the highest return achievable at each level of risk (Markowitz). Models close to it are efficient; diamonds are individual assets.",
+        "Die graue Kurve ist die höchste erreichbare Rendite je Risikoniveau (Markowitz). Modelle nahe der Kurve sind effizient; Rauten sind einzelne Werte."),
+    "Her modelde toplam riskin varlıklara dağılımı. Sermaye payından farklıdır: oynak bir varlık küçük payla bile riskin çoğunu taşıyabilir.": E(
+        "How each model's total risk is split across assets. It differs from capital share: a volatile asset can carry most of the risk even with a small weight.",
+        "Wie sich das Gesamtrisiko jedes Modells auf die Werte verteilt. Es unterscheidet sich vom Kapitalanteil: Ein volatiler Wert kann schon mit kleinem Gewicht den Großteil des Risikos tragen."),
+    "Hiçbir varlığa bu orandan fazla pay verilmez. 100 = sınır yok. Sınırı destekleyen modellere uygulanır (eşit ağırlık, NCO, stacking ve diğer kütüphanelerin modelleri hariç).": E(
+        "No asset gets more than this share. 100 = no limit. Applied to models that support it (not equal weight, NCO, stacking or the other libraries' models).",
+        "Kein Wert erhält mehr als diesen Anteil. 100 = keine Grenze. Gilt für Modelle, die das unterstützen (nicht Gleichgewichtung, NCO, Stacking und Modelle der anderen Bibliotheken)."),
+    "Kendi sunucunuza kurun": E("Self-host it", "Selbst hosten"),
+    "Riskteki pay": E("Share of risk", "Anteil am Risiko"),
+    "Sınırı desteklemeyen modeller: {models}.": E("Models without limit support: {models}.",
+                                                  "Modelle ohne Unterstützung der Grenze: {models}."),
+    "Tek varlık üst sınırı (%)": E("Max weight per asset (%)", "Max. Gewicht je Wert (%)"),
+    "Tek varlık üst sınırı: {x}.": E("Max weight per asset: {x}.", "Max. Gewicht je Wert: {x}."),
+    "Varlıklar": E("Assets", "Werte"),
+    "Yıllık beklenen getiri": E("Expected annual return", "Erwartete Jahresrendite"),
+    "Yıllık oynaklık": E("Annual volatility", "Jährliche Volatilität"),
+    "Örnek portföy": E("Sample portfolio", "Beispielportfolio"),
+    "Örnek portföy yüklendi: işlem geçmişi, temettü, dolar hesabı ve bir TEFAS fonu içeriyor. Kendi verilerinizi girmek için tabloları temizleyin.": E(
+        "Sample portfolio loaded: it includes a transaction history, a dividend, a USD account and a TEFAS fund. Clear the tables to enter your own data.",
+        "Beispielportfolio geladen: mit Transaktionshistorie, Dividende, USD-Konto und einem TEFAS-Fonds. Leeren Sie die Tabellen, um eigene Daten einzugeben."),
+    "İşlem geçmişi ve temettü": E("Transactions & dividends", "Transaktionen & Dividenden"),
+    "İşlem geçmişi, temettü ve nakit takibini gösteren hazır bir örnek yükler.": E(
+        "Loads a ready-made example showing transactions, dividends and cash tracking.",
+        "Lädt ein fertiges Beispiel mit Transaktionen, Dividenden und Cash-Verfolgung."),
+    "🎯 Örnek portföyle dene": E("🎯 Try a sample portfolio", "🎯 Beispielportfolio ausprobieren"),
+    "Varlık sayısı": E("Assets", "Werte"),
 }

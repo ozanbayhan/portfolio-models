@@ -45,3 +45,15 @@ def test_backtest_summary(returns):
     table = summarize(pop)
     assert len(table) == 3
     assert "Sharpe" in table.columns
+
+
+def test_max_weight_constraint(returns):
+    from portfolio_models.models import supports_max_weight
+
+    for name in ["min_variance", "max_sharpe", "hrp", "risk_parity"]:
+        assert supports_max_weight(name)
+        w = np.asarray(get_model(name, max_weight=0.25).fit(returns).weights_)
+        assert w.max() <= 0.25 + 1e-4, name
+    assert not supports_max_weight("equal_weighted")
+    table = fit_weights(returns, ["max_sharpe"], max_weight=0.3)
+    assert table["max_sharpe"].max() <= 0.3 + 1e-4

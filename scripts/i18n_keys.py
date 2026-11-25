@@ -44,6 +44,7 @@ def dynamic_keys() -> set[str]:
              "Maliyet (TL)", "K/Z (TL)", "K/Z %", "Ağırlık"}
     keys |= {"Mevcut (TL)", "Mevcut ağırlık", "Hedef ağırlık", "Hedef (TL)", "İşlem", "Adet", "Tutar (TL)"}
     keys |= {"Tarih", "İşlem (Al/Sat)", "Adet", "Fiyat"}
+    keys |= {"Örnek portföy"}
     keys -= {"BIST100"}
     return keys
 

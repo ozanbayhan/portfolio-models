@@ -131,12 +131,21 @@ MODELS: dict[str, tuple[Factory, str]] = {
 }
 
 
-def get_model(name: str):
+def get_model(name: str, max_weight: float | None = None):
+    """Modeli oluşturur. max_weight (0–1) verilirse, destekleyen modellerde tek varlığın üst sınırı olur."""
     try:
         factory, _ = MODELS[name]
     except KeyError:
         raise KeyError(f"Bilinmeyen model: {name}. Liste için: portfolio-models list") from None
-    return factory()
+    est = factory()
+    if max_weight is not None and max_weight < 1 and supports_max_weight(est):
+        est.set_params(max_weights=float(max_weight))
+    return est
+
+
+def supports_max_weight(est_or_name) -> bool:
+    est = MODELS[est_or_name][0]() if isinstance(est_or_name, str) else est_or_name
+    return "max_weights" in est.get_params(deep=False)
 
 
 def list_models() -> list[tuple[str, str]]:

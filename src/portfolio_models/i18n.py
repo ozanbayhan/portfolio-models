@@ -16,7 +16,7 @@ import contextvars
 LANGS = {"tr": "Türkçe", "en": "English", "de": "Deutsch"}
 DEFAULT_LANG = "tr"
 
-_lang: contextvars.ContextVar[str] = contextvars.ContextVar("lang", default=DEFAULT_LANG)
+_lang: contextvars.ContextVar[str | None] = contextvars.ContextVar("lang", default=None)
 
 
 def set_lang(lang: str) -> None:
@@ -24,12 +24,23 @@ def set_lang(lang: str) -> None:
 
 
 def get_lang() -> str:
-    return _lang.get()
+    lang = _lang.get()
+    if lang is not None:
+        return lang
+    # Streamlit buton geri çağrıları sayfa betiğinden önce çalışır; o anda dil henüz ayarlanmamıştır.
+    # Bu durumda oturumda seçili dili kullan.
+    try:
+        import streamlit as st
+
+        lang = st.session_state.get("lang")
+    except Exception:  # noqa: BLE001 - Streamlit dışında (testler, CLI, e-posta)
+        lang = None
+    return lang if lang in LANGS else DEFAULT_LANG
 
 
 def t(text: str, /, **kwargs) -> str:
     """Metni etkin dile çevirir; kwargs varsa şablonu doldurur."""
-    lang = _lang.get()
+    lang = get_lang()
     if lang != DEFAULT_LANG:
         from .locales import CATALOG
 
@@ -39,4 +50,4 @@ def t(text: str, /, **kwargs) -> str:
 
 def num_sep() -> tuple[str, str]:
     """(ondalık, binlik) ayırıcı: Türkçe/Almanca '1.234,5', İngilizce '1,234.5'."""
-    return (".", ",") if _lang.get() == "en" else (",", ".")
+    return (".", ",") if get_lang() == "en" else (",", ".")
