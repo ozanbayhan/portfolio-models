@@ -4,12 +4,12 @@ import pytest
 
 from portfolio_models import fit_weights
 from portfolio_models.insights import (
-    MODEL_INFO,
     asset_facts,
     backtest_comment,
     black_litterman_comment,
     consensus,
     model_comment,
+    num,
     pct,
     rebalance_comment,
     weight_metrics,
@@ -32,7 +32,9 @@ def returns():
 
 
 def test_every_model_has_description():
-    assert set(MODELS) <= set(MODEL_INFO)
+    from portfolio_models.model_guide import GUIDE
+
+    assert set(MODELS) <= set(GUIDE)
 
 
 def test_pct_turkish():
@@ -53,7 +55,7 @@ def test_model_comments_reflect_data(returns):
     mv = model_comment("min_variance", w["min_variance"], returns, base)
     assert "SAKIN" in mv and "Ne yapar" in mv and "Eşit ağırlığa göre oynaklık −" in mv and "puan" in mv
     ms = model_comment("max_sharpe", w["max_sharpe"], returns, base)
-    assert "aşırı uyum" in ms and ms.count("Geçmiş ortalama") == 1  # uyarı var, tekrar yok
+    assert "hata maksimizasyonu" in ms and ms.count("Geçmiş ortalama") == 1  # uyarı var, tekrar yok
     facts = " ".join(asset_facts(returns))
     assert "En sakin varlık **SAKIN**" in facts and "**OYNAK**" in facts
     cons = " ".join(consensus(w))
@@ -73,7 +75,7 @@ def test_backtest_comment():
     text = " ".join(backtest_comment(table))
     assert "**max_sharpe** (Sharpe 1,40)" in text
     assert "2 modelden 1 tanesi eşit ağırlığı" in text
-    assert "En sığ düşüş **min_variance**" in text
+    assert "En sığ düşüş: **min_variance**" in text
     assert "tekrar etmeyebilir" in text  # getiriye duyarlı model en iyi çıktı
 
 
@@ -86,3 +88,20 @@ def test_bl_and_rebalance_comments():
                         "İşlem": ["Sat", "Al"]})
     r = " ".join(rebalance_comment(reb, "hrp"))
     assert "**B**" in r and "**A**" in r and "Sapma yüksek" in r
+
+
+def test_languages(returns):
+    from portfolio_models.i18n import set_lang
+
+    w = fit_weights(returns, ["equal_weighted", "min_variance"])
+    try:
+        set_lang("en")
+        assert pct(0.1234) == "12.3%" and num(1.5) == "1.50"
+        en = model_comment("min_variance", w["min_variance"], returns)
+        assert "What it does" in en and "Effective number of assets" in en
+        set_lang("de")
+        assert pct(0.1234) == "12,3 %"
+        de = " ".join(asset_facts(returns))
+        assert "ruhigste Wert" in de
+    finally:
+        set_lang("tr")

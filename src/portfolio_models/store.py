@@ -7,6 +7,8 @@ yalnızca sunucuda (Streamlit secrets) durur, tarayıcıya gönderilmez.
 
 from __future__ import annotations
 
+from .i18n import t as T
+
 import json
 from datetime import datetime, timezone
 from typing import Any
@@ -82,7 +84,7 @@ def _t(kind: str) -> Table:
     try:
         return TABLES[kind]
     except KeyError:
-        raise ValueError(f"Bilinmeyen kayıt türü: {kind}") from None
+        raise ValueError(T("Bilinmeyen kayıt türü: {kind}", kind=kind)) from None
 
 
 def make_engine(url: str) -> Engine:
@@ -94,7 +96,7 @@ def make_engine(url: str) -> Engine:
 def _norm(email: str) -> str:
     email = (email or "").strip().lower()
     if not email:
-        raise ValueError("Kullanıcı e-postası boş olamaz.")
+        raise ValueError(T("Kullanıcı e-postası boş olamaz."))
     return email
 
 
@@ -121,9 +123,9 @@ def save_portfolio(engine: Engine, email: str, name: str, config: Any, kind: str
     """Aynı adla kayıt varsa üzerine yazar, yoksa yenisini ekler."""
     email, name = _norm(email), name.strip()
     if not name:
-        raise ValueError("Portföy adı boş olamaz.")
+        raise ValueError(T("Portföy adı boş olamaz."))
     if len(name) > 120:
-        raise ValueError("Portföy adı en fazla 120 karakter olabilir.")
+        raise ValueError(T("Portföy adı en fazla 120 karakter olabilir."))
     payload = json.dumps(config, ensure_ascii=False, default=str)
     now = datetime.now(timezone.utc)
     t = _t(kind)
@@ -135,7 +137,7 @@ def save_portfolio(engine: Engine, email: str, name: str, config: Any, kind: str
             return
         count = len(conn.execute(select(t.c.id).where(t.c.user_email == email)).all())
         if count >= MAX_PORTFOLIOS_PER_USER:
-            raise ValueError(f"En fazla {MAX_PORTFOLIOS_PER_USER} portföy kaydedebilirsiniz.")
+            raise ValueError(T("En fazla {n} portföy kaydedebilirsiniz.", n=MAX_PORTFOLIOS_PER_USER))
         conn.execute(
             insert(t).values(user_email=email, name=name, config=payload, updated_at=now)
         )

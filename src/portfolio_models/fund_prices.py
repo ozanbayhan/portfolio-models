@@ -5,6 +5,8 @@ Fiyat geçmişi {fon_kodu: {"YYYY-MM-DD": fiyat}} biçiminde saklanır.
 
 from __future__ import annotations
 
+from .i18n import t as T
+
 import io
 import re
 import unicodedata
@@ -86,7 +88,7 @@ def _read_table(data: bytes, filename: str) -> pd.DataFrame:
         except UnicodeDecodeError:
             continue
     else:
-        raise ValueError("Dosyanın karakter kodlaması okunamadı.")
+        raise ValueError(T("Dosyanın karakter kodlaması okunamadı."))
     first = text.splitlines()[0] if text else ""
     sep = ";" if first.count(";") > first.count(",") else ("\t" if "\t" in first else ",")
     return pd.read_csv(io.StringIO(text), sep=sep, dtype=str)
@@ -104,11 +106,10 @@ def parse_fund_file(data: bytes, filename: str, default_code: str | None = None)
     price_col = _find(list(raw.columns), _PRICE_KEYS)
     code_col = _find(list(raw.columns), _CODE_KEYS)
     if not date_col or not price_col:
-        raise ValueError(
-            "Dosyada 'Tarih' ve 'Fiyat' sütunları bulunamadı. Bulunan sütunlar: " + ", ".join(map(str, raw.columns))
-        )
+        raise ValueError(T("Dosyada 'Tarih' ve 'Fiyat' sütunları bulunamadı. Bulunan sütunlar: {found}",
+                           found=", ".join(map(str, raw.columns))))
     if not code_col and not default_code:
-        raise ValueError("Dosyada 'Fon Kodu' sütunu yok; yüklemeden önce fon kodunu seçin.")
+        raise ValueError(T("Dosyada 'Fon Kodu' sütunu yok; yüklemeden önce fon kodunu seçin."))
 
     df = pd.DataFrame(
         {
@@ -119,11 +120,11 @@ def parse_fund_file(data: bytes, filename: str, default_code: str | None = None)
     )
     bad = df["date"].isna() | df["price"].isna() | (df["price"] <= 0) | (df["code"] == "")
     if bad.any():
-        warnings.append(f"{int(bad.sum())} satır okunamadı ve atlandı.")
+        warnings.append(T("{n} satır okunamadı ve atlandı.", n=int(bad.sum())))
     df = df[~bad]
     future = df["date"] > pd.Timestamp(date.today())
     if future.any():
-        warnings.append(f"{int(future.sum())} satır ileri tarihli olduğu için atlandı.")
+        warnings.append(T("{n} satır ileri tarihli olduğu için atlandı.", n=int(future.sum())))
         df = df[~future]
     df = df.drop_duplicates(["code", "date"], keep="last").sort_values(["code", "date"])
     return df.reset_index(drop=True), warnings
@@ -160,10 +161,10 @@ def from_editor(df: pd.DataFrame) -> tuple[dict[str, float], list[str]]:
             continue
         p = parse_number(p)
         if not (p > 0):
-            warnings.append(f"{d}: fiyat geçersiz, atlandı.")
+            warnings.append(T("{d}: fiyat geçersiz, atlandı.", d=d))
             continue
         if pd.Timestamp(d) > pd.Timestamp(date.today()):
-            warnings.append(f"{d}: ileri tarih, atlandı.")
+            warnings.append(T("{d}: ileri tarih, atlandı.", d=d))
             continue
         out[pd.Timestamp(d).strftime("%Y-%m-%d")] = float(p)
     return out, warnings

@@ -86,6 +86,17 @@ url = "postgresql+psycopg://<Supabase session pooler bağlantı adresi>"
 
 Ayarlar yapılmazsa kayıt özelliği kapalı kalır, uygulamanın geri kalanı çalışmaya devam eder. Yerelde girişsiz denemek için `.streamlit/secrets.toml` dosyasına `local_mode = true` yazın; kayıtlar `portfolios.db` dosyasına yazılır.
 
+### 🌐 Diller ve model rehberi
+
+Uygulama **Türkçe, İngilizce ve Almanca** kullanılabilir. Dil, kenar çubuğunun en üstündeki 🌐 seçiciyle değiştirilir; seçim adres çubuğuna (`?lang=en`) yazıldığı için paylaşılan linkler aynı dilde açılır. Haftalık e-posta, abonelik açılırken seçili olan dilde gönderilir.
+
+**📚 Modeller ve rehber** sekmesinde şunlar bulunur:
+
+- Her model için kim ve ne zaman geliştirdi (kaynak makaleyle), temel fikir, sonuçların nasıl okunacağı, güçlü yanı ve dikkat edilecekler.
+- Sharpe, Sortino, maks. düşüş, CVaR, etkin varlık sayısı, risk katkısı, walk-forward, TWR, XIRR ve reel getiri için kısa bir okuma sözlüğü.
+
+Çeviriler `src/portfolio_models/locales.py` dosyasındadır. Yeni bir metin eklendiğinde `tests/test_i18n.py` eksik çeviriyi yakalar.
+
 ### 🧠 Otomatik yorumlar
 
 Her ekranda, sonuçları sade Türkçe açıklayan veriye dayalı yorumlar bulunur:

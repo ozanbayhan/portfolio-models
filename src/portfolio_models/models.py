@@ -140,4 +140,7 @@ def get_model(name: str):
 
 
 def list_models() -> list[tuple[str, str]]:
-    return [(name, desc) for name, (_, desc) in MODELS.items()]
+    """(model adı, etkin dildeki açıklama) listesi."""
+    from .i18n import t
+
+    return [(name, t(desc)) for name, (_, desc) in MODELS.items()]

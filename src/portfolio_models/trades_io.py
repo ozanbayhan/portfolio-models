@@ -11,6 +11,8 @@ Aracı kurum ekstreleri farklı sütun adları kullanır; okuyucu yaygın adlar�
 
 from __future__ import annotations
 
+from .i18n import t as T
+
 import io
 
 import pandas as pd
@@ -32,13 +34,16 @@ from .holdings import (
     TXN_KINDS,
 )
 
-_DATE_KEYS = ("tarih", "islemtarihi", "date", "tradedate", "valor")
-_SIDE_KEYS = ("islem", "islemtipi", "islemturu", "tip", "yon", "alsat", "side", "type", "buysell")
-_SYMBOL_KEYS = ("sembol", "hisse", "menkul", "menkulkiymet", "kod", "fonkodu", "symbol", "ticker", "varlik")
-_QTY_KEYS = ("adet", "miktar", "lot", "nominal", "quantity", "qty", "pay")
-_PRICE_KEYS = ("fiyat", "birimfiyat", "ortalamafiyat", "islemfiyati", "price", "unitprice")
-_KIND_KEYS = ("tur", "varlikturu", "kind", "assettype")
-_AMOUNT_KEYS = ("tutar", "nettutar", "toplamtutar", "amount", "netamount", "total")
+_DATE_KEYS = ("tarih", "islemtarihi", "date", "tradedate", "valor", "datum", "handelstag", "buchungstag")
+_SIDE_KEYS = ("islem", "islemtipi", "islemturu", "tip", "yon", "alsat", "side", "action", "type", "buysell",
+              "aktion", "transaktion", "richtung", "geschaftsart", "vorgang")
+_SYMBOL_KEYS = ("sembol", "hisse", "menkul", "menkulkiymet", "kod", "fonkodu", "symbol", "ticker", "varlik",
+                "asset", "wertpapier", "titel")
+_QTY_KEYS = ("adet", "miktar", "lot", "nominal", "quantity", "qty", "units", "pay", "stuck", "stueck", "anzahl",
+             "menge")
+_PRICE_KEYS = ("fiyat", "birimfiyat", "ortalamafiyat", "islemfiyati", "price", "unitprice", "preis", "kurs")
+_KIND_KEYS = ("tur", "varlikturu", "kind", "assettype", "art", "anlageklasse", "wertpapierart")
+_AMOUNT_KEYS = ("tutar", "nettutar", "toplamtutar", "amount", "netamount", "total", "betrag", "nettobetrag")
 
 _BUY = {"al", "alis", "alim", "a", "buy", "b", "long"}
 _SELL = {"sat", "satis", "satim", "s", "sell", "short"}
@@ -80,8 +85,32 @@ def export_csv(rows: list[dict]) -> bytes:
     return df.to_csv(sep=";", index=False).encode("utf-8-sig")
 
 
-def _side(v) -> str | None:
+def _catalog_alias(v, internal: list[str]) -> str | None:
+    """Değer, bir iç değerin İngilizce/Almanca çevirisiyle eşleşiyorsa o iç değeri döner."""
+    from .locales import CATALOG
+
     n = _norm(v)
+    for key in internal:
+        if n == _norm(key) or any(n == _norm(tr) for tr in CATALOG.get(key, {}).values()):
+            return key
+    return None
+
+
+def _side(v) -> str | None:
+    alias = _catalog_alias(v, [SIDE_BUY, SIDE_SELL, SIDE_DIV, SIDE_DEP, SIDE_WD])
+    if alias:
+        return alias
+    n = _norm(v)
+    if n in {"kauf", "zukauf"}:
+        return SIDE_BUY
+    if n in {"verkauf"}:
+        return SIDE_SELL
+    if n.startswith("dividende") or n.startswith("ausschuttung"):
+        return SIDE_DIV
+    if n.startswith("einzahlung"):
+        return SIDE_DEP
+    if n.startswith("auszahlung"):
+        return SIDE_WD
     if n in _DIV or n.startswith("temettu") or n.startswith("dividend"):
         return SIDE_DIV
     if n in _DEP or "yatir" in n or n.startswith("deposit"):
@@ -100,6 +129,9 @@ def _kind(v, default: str) -> str:
         return default
     if v in TXN_KINDS:
         return v
+    alias = _catalog_alias(v, TXN_KINDS + [KIND_CASH])
+    if alias:
+        return alias
     return _KIND_ALIASES.get(_norm(v), default)
 
 
@@ -112,13 +144,14 @@ def parse_trades_file(data: bytes, filename: str, default_kind: str = KIND_BIST)
     sym_c, qty_c, price_c = _find(cols, _SYMBOL_KEYS), _find(cols, _QTY_KEYS), _find(cols, _PRICE_KEYS)
     amount_c = _find([c for c in cols if c not in (price_c, qty_c)], _AMOUNT_KEYS)
     kind_c = _find([c for c in cols if c not in (side_c,)], _KIND_KEYS)
-    missing = [n for n, c in (("Tarih", date_c), ("İşlem (Al/Sat)", side_c)) if c is None]
+    missing = [T(n) for n, c in (("Tarih", date_c), ("İşlem (Al/Sat)", side_c)) if c is None]
     if qty_c is None and amount_c is None:
-        missing.append("Adet")
+        missing.append(T("Adet"))
     if price_c is None and amount_c is None:
-        missing.append("Fiyat")
+        missing.append(T("Fiyat"))
     if missing:
-        raise ValueError(f"Şu sütunlar bulunamadı: {', '.join(missing)}. Bulunan sütunlar: {', '.join(cols)}")
+        raise ValueError(T("Şu sütunlar bulunamadı: {missing}. Bulunan sütunlar: {found}",
+                            missing=", ".join(missing), found=", ".join(cols)))
 
     dates = _parse_dates(raw[date_c])
     rows: list[dict] = []
@@ -135,29 +168,29 @@ def parse_trades_file(data: bytes, filename: str, default_kind: str = KIND_BIST)
         d = dates.iloc[i]
         problems = []
         if pd.isna(d):
-            problems.append("tarih")
+            problems.append(T("tarih"))
         if side is None:
-            problems.append("işlem yönü")
+            problems.append(T("işlem yönü"))
         elif side in CASH_SIDES:
             kind, sym = KIND_CASH, (sym if len(sym) == 3 and sym.isalpha() else "TRY")
             if not (amount > 0):
                 amount = qty if qty > 0 else float("nan")
             if not (amount > 0):
-                problems.append("tutar")
+                problems.append(T("tutar"))
         elif side == SIDE_DIV:
             if not (amount > 0) and not (qty > 0 and price > 0):
-                problems.append("temettü tutarı")
+                problems.append(T("temettü tutarı"))
         else:
             if not (qty > 0):
-                problems.append("adet")
+                problems.append(T("adet"))
             if not (price > 0) and amount > 0 and qty > 0:
                 price = amount / qty
             if not (price > 0):
-                problems.append("fiyat")
+                problems.append(T("fiyat"))
         if side not in CASH_SIDES and kind != KIND_GOLD and not sym:
-            problems.append("sembol")
+            problems.append(T("sembol"))
         if problems:
-            warnings.append(f"Dosya satırı {i + 2}: {', '.join(problems)} okunamadı, atlandı.")
+            warnings.append(T("Dosya satırı {n}: {fields} okunamadı, atlandı.", n=i + 2, fields=", ".join(problems)))
             continue
         row = {"Tarih": d.strftime("%Y-%m-%d"), "İşlem": side, "Tür": kind, "Sembol": sym,
                "Adet": float(qty) if qty > 0 else None, "Fiyat": float(price) if price > 0 else None}

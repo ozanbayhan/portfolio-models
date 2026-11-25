@@ -23,6 +23,8 @@ from email.message import EmailMessage
 import pandas as pd
 
 from . import store
+from .i18n import get_lang, num_sep, set_lang, t
+from .insights import pct
 from .fund_prices import history_series
 from .holdings import (
     KIND_CASH,
@@ -32,6 +34,7 @@ from .holdings import (
     aggregate_trades,
     cash_balances,
     cash_tracking,
+    display_label,
     fetch_market_data,
     make_position,
     merge_rows_with_trades,
@@ -54,16 +57,22 @@ def weekly_enabled(engine, email: str) -> bool:
     return bool(cfg and cfg.get("enabled"))
 
 
-def set_weekly(engine, email: str, enabled: bool) -> None:
-    store.save_portfolio(engine, email, WEEKLY_KEY, {"enabled": bool(enabled)}, kind=SETTINGS_KIND)
+def set_weekly(engine, email: str, enabled: bool, lang: str = "tr") -> None:
+    """Aboneliği açar/kapatır; e-postanın gönderileceği dili de saklar."""
+    store.save_portfolio(engine, email, WEEKLY_KEY, {"enabled": bool(enabled), "lang": lang}, kind=SETTINGS_KIND)
+
+
+def weekly_lang(engine, email: str) -> str:
+    cfg = store.load_portfolio(engine, email, WEEKLY_KEY, kind=SETTINGS_KIND) or {}
+    return cfg.get("lang", "tr")
 
 
 def subscribers(engine) -> list[str]:
     from sqlalchemy import select
 
-    t = store.TABLES[SETTINGS_KIND]
+    tbl = store.TABLES[SETTINGS_KIND]
     with engine.connect() as conn:
-        rows = conn.execute(select(t.c.user_email, t.c.config).where(t.c.name == WEEKLY_KEY)).all()
+        rows = conn.execute(select(tbl.c.user_email, tbl.c.config).where(tbl.c.name == WEEKLY_KEY)).all()
     import json
 
     return sorted({r.user_email for r in rows if json.loads(r.config).get("enabled")})
@@ -105,15 +114,15 @@ def compute_summary(email: str, name: str, cfg, fund_hist: dict[str, dict[str, f
     summary, w2 = aggregate_trades(trades)
     real_hist = {c: history_series(h) for c, h in fund_hist.items() if h}
     fund_pricing = dict(real_hist)
-    for t in trades:
-        if t.kind == KIND_FUND and t.is_trade:
-            s = fund_pricing.get(t.label, pd.Series(dtype=float))
-            if t.date not in s.index:
-                s = pd.concat([s, pd.Series({t.date: t.price})]).sort_index()
-            fund_pricing[t.label] = s
+    for tr in trades:
+        if tr.kind == KIND_FUND and tr.is_trade:
+            s = fund_pricing.get(tr.label, pd.Series(dtype=float))
+            if tr.date not in s.index:
+                s = pd.concat([s, pd.Series({tr.date: tr.price})]).sort_index()
+            fund_pricing[tr.label] = s
     sets = dict(funds_with_history=set(real_hist), funds_with_price=set(fund_pricing))
     positions, w3 = parse_positions(merge_rows_with_trades(rows, summary), **sets)
-    cash_curs = {t.symbol for t in trades if t.kind == KIND_CASH and t.symbol != "TRY"}
+    cash_curs = {tr.symbol for tr in trades if tr.kind == KIND_CASH and tr.symbol != "TRY"}
     probe = positions + [make_position(KIND_CASH, c, 0.0) for c in cash_curs]
     closes, currencies = market([p for p in probe if p.kind != KIND_FUND], years=1)
     if cash_tracking(trades):
@@ -121,7 +130,7 @@ def compute_summary(email: str, name: str, cfg, fund_hist: dict[str, dict[str, f
                                         **sets)
     prices = try_price_history(positions, closes, currencies, fund_pricing)
     table, missing = valuation(positions, closes, currencies, prices, fund_pricing)
-    warnings = w1 + w2 + w3 + ([f"Fiyat bulunamadı: {', '.join(missing)}"] if missing else [])
+    warnings = w1 + w2 + w3 + ([t("Fiyat bulunamadı: {assets}", assets=", ".join(missing))] if missing else [])
     if table.empty:
         return WeeklySummary(email, name, 0.0, None, table, warnings=warnings)
 
@@ -150,54 +159,63 @@ def compute_summary(email: str, name: str, cfg, fund_hist: dict[str, dict[str, f
 
 
 def _tl(x: float) -> str:
-    return f"₺{x:,.0f}".replace(",", ".")
+    dec, thou = num_sep()
+    return "₺" + f"{x:,.0f}".replace(",", thou)
 
 
 def _pct(x) -> str:
-    return "—" if x is None or pd.isna(x) else f"{x:+.2%}".replace(".", ",")
+    return "—" if x is None or pd.isna(x) else pct(x, 2, sign=True)
+
+
+def _asset(name: str) -> str:
+    return display_label(name)
 
 
 def render_html(s: WeeklySummary, app_url: str = APP_URL) -> str:
+    lang = get_lang()
     color = "#2e9e5b" if (s.week_change or 0) >= 0 else "#d9534f"
     head = (f"<p style='font-size:28px;margin:0'><b>{_tl(s.total)}</b></p>"
-            f"<p style='margin:4px 0 16px;color:{color}'>Bu hafta: "
+            f"<p style='margin:4px 0 16px;color:{color}'>{t('Bu hafta')}: "
             f"{_tl(s.week_change) if s.week_change is not None else '—'} ({_pct(s.week_pct)})</p>")
     rows = ""
-    t = s.table.sort_values("Değer (TL)", ascending=False) if not s.table.empty else s.table
-    for _, r in t.iterrows():
+    tb = s.table.sort_values("Değer (TL)", ascending=False) if not s.table.empty else s.table
+    for _, r in tb.iterrows():
         wk = r.get("Haftalık %")
         c = "#2e9e5b" if pd.notna(wk) and wk >= 0 else ("#d9534f" if pd.notna(wk) else "#888")
-        rows += (f"<tr><td style='padding:4px 8px'>{html.escape(str(r['Varlık']))}</td>"
+        rows += (f"<tr><td style='padding:4px 8px'>{html.escape(_asset(r['Varlık']))}</td>"
                  f"<td style='padding:4px 8px;text-align:right'>{_tl(r['Değer (TL)'])}</td>"
-                 f"<td style='padding:4px 8px;text-align:right'>{r['Ağırlık']:.1%}</td>"
+                 f"<td style='padding:4px 8px;text-align:right'>{pct(r['Ağırlık'])}</td>"
                  f"<td style='padding:4px 8px;text-align:right;color:{c}'>{_pct(wk)}</td></tr>")
     notes = ""
     if s.stale_funds:
-        notes += (f"<p style='color:#b8860b'>⚠️ Fiyatı 7 günden eski fonlar: {html.escape(', '.join(s.stale_funds))}. "
-                  "Uygulamada Fon fiyatları sekmesinden güncelleyebilirsiniz.</p>")
+        notes += ("<p style='color:#b8860b'>" + html.escape(t(
+            "⚠️ Fiyatı 7 günden eski fonlar: {funds}. Uygulamada Fon fiyatları sekmesinden güncelleyebilirsiniz.",
+            funds=", ".join(s.stale_funds))) + "</p>")
+    th = "padding:4px 8px"
     return f"""<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;color:#222">
-<h2 style="margin:0 0 4px">💼 Haftalık portföy özeti</h2>
+<h2 style="margin:0 0 4px">💼 {html.escape(t('Haftalık portföy özeti'))}</h2>
 <p style="margin:0 0 16px;color:#666">{html.escape(s.portfolio)} · {date.today():%d.%m.%Y}</p>
 {head}
 <table style="border-collapse:collapse;width:100%;font-size:14px">
-<tr style="background:#f3f3f3"><th style="text-align:left;padding:4px 8px">Varlık</th>
-<th style="text-align:right;padding:4px 8px">Değer</th><th style="text-align:right;padding:4px 8px">Ağırlık</th>
-<th style="text-align:right;padding:4px 8px">Haftalık</th></tr>
+<tr style="background:#f3f3f3"><th style="text-align:left;{th}">{t('Varlık')}</th>
+<th style="text-align:right;{th}">{t('Değer')}</th><th style="text-align:right;{th}">{t('Ağırlık')}</th>
+<th style="text-align:right;{th}">{t('Haftalık')}</th></tr>
 {rows}</table>
 {notes}
-<p style="margin-top:16px"><a href="{app_url}/portfoyum">Portföyümü aç →</a></p>
-<p style="font-size:12px;color:#888">Haftalık değişim bugünkü miktarlarla hesaplanır. Eğitim amaçlıdır, yatırım
-tavsiyesi değildir. Bu e-postaları almak istemiyorsanız uygulamada Portföyüm sayfasındaki
-"Haftalık e-posta özeti" kutusunun işaretini kaldırın.</p></div>"""
+<p style="margin-top:16px"><a href="{app_url}/portfoyum?lang={lang}">{t('Portföyümü aç →')}</a></p>
+<p style="font-size:12px;color:#888">{html.escape(t(
+    "Haftalık değişim bugünkü miktarlarla hesaplanır. Eğitim amaçlıdır, yatırım tavsiyesi değildir. Bu e-postaları "
+    "almak istemiyorsanız uygulamada Portföyüm sayfasındaki \"Haftalık e-posta özeti\" anahtarını kapatın."))}</p></div>"""
 
 
 def build_message(s: WeeklySummary, sender: str, app_url: str = APP_URL) -> EmailMessage:
     msg = EmailMessage()
     change = f" ({_pct(s.week_pct)})" if s.week_pct is not None else ""
-    msg["Subject"] = f"Portföy özeti: {_tl(s.total)}{change}"
+    msg["Subject"] = t("Portföy özeti: {value}", value=_tl(s.total)) + change
     msg["From"] = sender
     msg["To"] = s.email
-    msg.set_content(f"Portföy değeri: {_tl(s.total)}. Bu hafta: {_pct(s.week_pct)}. Ayrıntılar: {app_url}/portfoyum")
+    msg.set_content(t("Portföy değeri: {value}. Bu hafta: {change}. Ayrıntılar: {url}",
+                      value=_tl(s.total), change=_pct(s.week_pct), url=f"{app_url}/portfoyum?lang={get_lang()}"))
     msg.add_alternative(render_html(s, app_url), subtype="html")
     return msg
 
@@ -223,6 +241,7 @@ def run(engine, sender: str, dry_run: bool = False, out_dir: str | None = None, 
         cfg = store.load_portfolio(engine, email, name, kind="holdings")
         fund_hist = {f["name"]: store.load_portfolio(engine, email, f["name"], kind="fund_prices") or {}
                      for f in store.list_portfolios(engine, email, kind="fund_prices")}
+        set_lang(weekly_lang(engine, email))  # e-posta, kullanıcının seçtiği dilde
         try:
             s = compute_summary(email, name, cfg, fund_hist, market=market)
         except Exception as exc:  # noqa: BLE001 - bir kullanıcının hatası diğerlerini durdurmasın
@@ -237,6 +256,7 @@ def run(engine, sender: str, dry_run: bool = False, out_dir: str | None = None, 
             with open(os.path.join(out_dir, f"{email.replace('@', '_at_')}.html"), "w", encoding="utf-8") as f:
                 f.write(render_html(s))
         log.append(f"{email}: hazır ({_tl(s.total)})")
+    set_lang("tr")
     if messages and not dry_run:
         send(messages)
         log.append(f"{len(messages)} e-posta gönderildi")

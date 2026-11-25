@@ -69,3 +69,19 @@ def test_statement_with_dividend_and_cash():
     assert [(r["İşlem"], r["Tür"], r["Sembol"], r.get("Tutar")) for r in rows] == [
         ("Para yatır", "Nakit", "TRY", 50000.0), ("Al", KIND_BIST, "THYAO", None),
         ("Temettü", KIND_BIST, "THYAO", 1250.5), ("Para çek", "Nakit", "TRY", 5000.0)]
+
+
+def test_german_and_english_statements():
+    csv = (
+        "Datum;Aktion;Art;Symbol;Stück;Preis;Betrag\n"
+        "05.01.2026;Kauf;BIST-Aktie;THYAO;10;300;\n"
+        "06.01.2026;Verkauf;BIST stock;THYAO;5;310;\n"
+        "07.01.2026;Dividende;BIST-Aktie;THYAO;;;12,50\n"
+        "08.01.2026;Einzahlung;Cash;EUR;;;1.000,00\n"
+        "09.01.2026;Withdrawal;Cash;TRY;;;500\n"
+    ).encode("utf-8")
+    rows, warns = parse_trades_file(csv, "de.csv")
+    assert warns == []
+    assert [(r["İşlem"], r["Tür"], r["Sembol"]) for r in rows] == [
+        ("Al", KIND_BIST, "THYAO"), ("Sat", KIND_BIST, "THYAO"), ("Temettü", KIND_BIST, "THYAO"),
+        ("Para yatır", "Nakit", "EUR"), ("Para çek", "Nakit", "TRY")]

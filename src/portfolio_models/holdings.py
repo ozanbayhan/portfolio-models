@@ -11,6 +11,8 @@ Kavramlar
 
 from __future__ import annotations
 
+from .i18n import t as T
+
 import math
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -76,6 +78,16 @@ def asset_label(kind: str, symbol: str | None) -> str | None:
     return None
 
 
+def display_label(label: str) -> str:
+    """İç varlık adını ekranda gösterilecek dile çevirir ('Gram altın', 'Nakit USD'); diğerleri olduğu gibi."""
+    label = str(label)
+    if label == "Gram altın":
+        return T("Gram altın")
+    if label.startswith("Nakit "):
+        return T("Nakit") + label[5:]
+    return label
+
+
 def make_position(kind: str, symbol: str | None, qty: float, cost: float | None = None,
                   manual_price: float | None = None, has_history: bool = False) -> Position:
     """Doğrulama yapmadan pozisyon nesnesi oluşturur (sembolün geçerli olduğu varsayılır)."""
@@ -90,7 +102,7 @@ def make_position(kind: str, symbol: str | None, qty: float, cost: float | None 
         return Position(kind, label, None, qty, cost, manual_price=manual_price, has_history=has_history)
     if kind == KIND_CASH:
         return Position(kind, label, None, qty, None, cash_currency=label.split()[-1])
-    raise ValueError(f"Bilinmeyen tür: {kind}")
+    raise ValueError(T("Bilinmeyen tür: {kind}", kind=kind))
 
 
 def _float_or_none(v) -> float | None:
@@ -120,34 +132,35 @@ def parse_positions(rows: list[dict], funds_with_history: set[str] | frozenset =
         try:
             qty = float(qty)
         except (TypeError, ValueError):
-            warnings.append(f"Satır {i}: miktar sayı olmalı.")
+            warnings.append(T("Satır {i}: miktar sayı olmalı.", i=i))
             continue
         if not math.isfinite(qty) or qty <= 0:
-            warnings.append(f"Satır {i}: miktar sıfırdan büyük olmalı.")
+            warnings.append(T("Satır {i}: miktar sıfırdan büyük olmalı.", i=i))
             continue
         if kind not in KINDS:
-            warnings.append(f"Satır {i}: tür seçin.")
+            warnings.append(T("Satır {i}: tür seçin.", i=i))
             continue
         label = asset_label(kind, symbol)
         if label is None:
             if kind == KIND_CASH:
-                warnings.append(f"Satır {i}: nakit için para birimi kodu yazın (TRY, USD, EUR…).")
+                warnings.append(T("Satır {i}: nakit için para birimi kodu yazın (TRY, USD, EUR…).", i=i))
             elif kind == KIND_FUND:
-                warnings.append(f"Satır {i}: TEFAS fon kodunu yazın (ör. TTE, AFT).")
+                warnings.append(T("Satır {i}: TEFAS fon kodunu yazın (ör. TTE, AFT).", i=i))
             else:
-                warnings.append(f"Satır {i}: sembol boş.")
+                warnings.append(T("Satır {i}: sembol boş.", i=i))
             continue
         cost = _float_or_none(row.get("Ort. maliyet")) if kind != KIND_CASH else None
         manual = _float_or_none(row.get("Güncel fiyat")) if kind == KIND_FUND else None
         has_hist = kind == KIND_FUND and label in funds_with_history
         if kind == KIND_FUND and manual is None and not has_hist and label not in funds_with_price:
-            warnings.append(
-                f"Satır {i}: {label} için fiyat yok. 'Güncel fiyat' sütununa birim fiyatı yazın "
-                "ya da Fon fiyatları sekmesinden fiyat geçmişi yükleyin."
-            )
+            warnings.append(T(
+                "Satır {i}: {label} için fiyat yok. 'Güncel fiyat' sütununa birim fiyatı yazın "
+                "ya da Fon fiyatları sekmesinden fiyat geçmişi yükleyin.", i=i, label=label
+            ))
             continue
         if label in seen:
-            warnings.append(f"Satır {i}: {label} birden fazla kez girilmiş; miktarları tek satırda toplayın.")
+            warnings.append(T("Satır {i}: {label} birden fazla kez girilmiş; miktarları tek satırda toplayın.", i=i,
+                              label=label))
             continue
         seen.add(label)
         positions.append(make_position(kind, symbol, qty, cost, manual, has_hist))
@@ -196,13 +209,13 @@ def parse_trades(rows: list[dict], today: date | None = None) -> tuple[list[Trad
             if pd.isna(ts):
                 raise ValueError
         except (TypeError, ValueError):
-            warnings.append(f"İşlem {i}: tarih geçersiz.")
+            warnings.append(T("İşlem {i}: tarih geçersiz.", i=i))
             continue
         if ts.date() > today:
-            warnings.append(f"İşlem {i}: ileri tarihli işlem atlandı.")
+            warnings.append(T("İşlem {i}: ileri tarihli işlem atlandı.", i=i))
             continue
         if side not in SIDES:
-            warnings.append(f"İşlem {i}: işlem türünü seçin ({', '.join(SIDES)}).")
+            warnings.append(T("İşlem {i}: işlem türünü seçin ({options}).", i=i, options=", ".join(T(x) for x in SIDES)))
             continue
         qty, price, total = (_float_or_none(row.get("Adet")), _float_or_none(row.get("Fiyat")),
                              _float_or_none(row.get("Tutar")))
@@ -211,28 +224,28 @@ def parse_trades(rows: list[dict], today: date | None = None) -> tuple[list[Trad
             cur = symbol if kind == KIND_CASH and symbol else ("TRY" if kind in (None, "", KIND_CASH) else None)
             label = asset_label(KIND_CASH, cur) if cur else None
             if label is None:
-                warnings.append(f"İşlem {i}: para yatırma/çekme için Tür 'Nakit', Sembol para birimi (TRY, USD…) olmalı.")
+                warnings.append(T("İşlem {i}: para yatırma/çekme için Tür 'Nakit', Sembol para birimi (TRY, USD…) olmalı.", i=i))
                 continue
             amount = total or (qty * price if qty and price else None)
             if amount is None:
-                warnings.append(f"İşlem {i}: tutarı 'Tutar' sütununa yazın.")
+                warnings.append(T("İşlem {i}: tutarı 'Tutar' sütununa yazın.", i=i))
                 continue
             trades.append(Trade(ts, side, KIND_CASH, label, label.split()[-1], 0.0, 0.0, amount))
             continue
 
         if kind not in TXN_KINDS:
-            warnings.append(f"İşlem {i}: tür seçin." + (" Nakit yalnızca para yatırma/çekmede kullanılır."
-                                                         if kind == KIND_CASH else ""))
+            warnings.append(T("İşlem {i}: tür seçin.", i=i)
+                            + (" " + T("Nakit yalnızca para yatırma/çekmede kullanılır.") if kind == KIND_CASH else ""))
             continue
         label = asset_label(kind, symbol)
         if label is None:
-            warnings.append(f"İşlem {i}: sembol boş.")
+            warnings.append(T("İşlem {i}: sembol boş.", i=i))
             continue
         if side == SIDE_DIV:
             # Temettü: 'Tutar' (net toplam) ya da Adet × Fiyat (pay adedi × hisse başı net temettü)
             amount = total or (qty * price if qty and price else None)
             if amount is None:
-                warnings.append(f"İşlem {i}: temettü için 'Tutar' ya da adet ve hisse başı temettü girin.")
+                warnings.append(T("İşlem {i}: temettü için 'Tutar' ya da adet ve hisse başı temettü girin.", i=i))
                 continue
             trades.append(Trade(ts, side, kind, label, symbol, 0.0, 0.0, amount))
             continue
@@ -240,7 +253,7 @@ def parse_trades(rows: list[dict], today: date | None = None) -> tuple[list[Trad
             if qty is not None and total:  # adet + toplam tutar verilmişse birim fiyatı çıkar
                 price = total / qty
             else:
-                warnings.append(f"İşlem {i}: adet ve fiyat sıfırdan büyük olmalı.")
+                warnings.append(T("İşlem {i}: adet ve fiyat sıfırdan büyük olmalı.", i=i))
                 continue
         trades.append(Trade(ts, side, kind, label, symbol, qty, price, qty * price))
     order = {SIDE_DEP: 0, SIDE_BUY: 1, SIDE_DIV: 2, SIDE_SELL: 3, SIDE_WD: 4}
@@ -279,10 +292,10 @@ def aggregate_trades(trades: list[Trade]) -> tuple[dict[str, TradeSummary], list
         else:
             q = t.qty
             if q > s.qty + 1e-9:
-                warnings.append(
-                    f"{t.label}: {t.date:%d.%m.%Y} tarihinde elde {s.qty:g} adet varken {q:g} adet satış girilmiş; "
-                    "fazlası yok sayıldı."
-                )
+                warnings.append(T(
+                    "{label}: {date} tarihinde elde {have} adet varken {sold} adet satış girilmiş; fazlası yok sayıldı.",
+                    label=t.label, date=f"{t.date:%d.%m.%Y}", have=f"{s.qty:g}", sold=f"{q:g}",
+                ))
                 q = s.qty
             avg = s.avg_cost or 0.0
             s.realized += (t.price - avg) * q
