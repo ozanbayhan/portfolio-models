@@ -48,7 +48,7 @@ Transaktionen, Dividenden, Ein- und Auszahlungen, Cash in mehreren Währungen, g
 - 📥 **Import von Depotauszügen** — erkennt deutsche, englische und türkische Spalten und Begriffe (Kauf, Verkauf, Dividende …)
 - 🏦 **TEFAS-Fonds** (türkische Investmentfonds) mit hochgeladener oder manueller Preishistorie
 - ⚖️ **Rebalancing-Vorschläge** — exakte Stückzahlen, ganze BIST-Aktien, ohne Cash zu überziehen
-- 📊 **Benchmarks und Inflation** — BIST100, USD/TRY, Gold, VPI; nominale und reale Rendite
+- 📊 **Benchmarks und Inflation** — in Lira, US-Dollar oder Euro gegen BIST100, S&P 500, DAX, Gold und den türkischen, US- oder deutschen VPI (TCMB EVDS, FRED/BLS, Bundesbank; OECD als Rückfall); nominale und reale Rendite
 - 📧 **Wöchentliche E-Mail-Zusammenfassung** (optional)
 - 🌐 **Drei Sprachen** — Deutsch, English, Türkçe
 - 👥 **Mehr- oder Einzelbenutzer** — Google-Anmeldung mit getrennten Daten oder Einzelplatzmodus ohne Konfiguration

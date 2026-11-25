@@ -10,7 +10,7 @@ src/portfolio_models/
 ├── holdings.py       positions, transactions, cash, valuation, XIRR, rebalancing
 ├── fund_prices.py    TEFAS export parsing, manual price history
 ├── trades_io.py      CSV/Excel import & export of transactions (TR/EN/DE)
-├── benchmarks.py     TWR, BIST100 / USD / gold, CPI from TCMB EVDS or OECD
+├── benchmarks.py     TWR, benchmarks in TRY/USD/EUR, CPI for Türkiye (EVDS), US (FRED/BLS), Germany (Bundesbank), OECD fallback
 ├── insights.py       rule-based commentary
 ├── model_guide.py    model history & reading guide, metrics glossary (TR/EN/DE)
 ├── i18n.py           t() — Turkish source strings are the keys
@@ -32,7 +32,7 @@ docker/entrypoint.sh  turns PM_* environment variables into Streamlit secrets
   everything without the UI.
 - **One estimator interface.** Models from three libraries are exposed as skfolio-style estimators, so backtests,
   frontiers and weight caps work the same for all of them.
-- **No hidden services.** Prices from Yahoo Finance, CPI from TCMB EVDS/OECD, storage in SQLite or your Postgres.
+- **No hidden services.** Prices from Yahoo Finance, CPI from TCMB EVDS, FRED/BLS, Bundesbank or OECD, storage in SQLite or your Postgres.
   Nothing else is contacted.
 - **Per-user isolation in the data layer.** Every query in `store.py` filters by the signed-in user's e-mail; local
   mode uses a fixed local user.

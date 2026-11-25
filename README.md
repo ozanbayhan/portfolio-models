@@ -51,7 +51,7 @@ and inflation-adjusted comparisons against BIST100, USD and gold.
 | 📥 **Broker statement import** | CSV/Excel import that recognises Turkish, English and German column names and values; duplicate-safe |
 | 🏦 **TEFAS funds** | Upload price history from TEFAS exports or type it in; funds join charts and rebalancing |
 | ⚖️ **Rebalancing suggestions** | Exact buy/sell quantities to reach any model's target, whole shares for BIST, never overdrawing cash |
-| 📊 **Benchmarks & inflation** | Compare against BIST100, USD/TRY, gold and CPI (TCMB EVDS or OECD) — nominal and real returns |
+| 📊 **Benchmarks & inflation** | Compare in TRY, USD or EUR against BIST100, S&P 500, DAX, gold and Turkish, US or German CPI (TCMB EVDS, FRED/BLS, Bundesbank — OECD as fallback) — nominal and real returns |
 | 📧 **Weekly email summary** | Opt-in Monday digest of value, weekly change and stale fund prices |
 | 🌐 **Three languages** | Türkçe, English, Deutsch — UI, commentary, model guide and emails |
 | 👥 **Multi-user or single-user** | Google sign-in with per-user isolation, or zero-config local mode |
@@ -154,14 +154,14 @@ src/portfolio_models/
 ├── models.py, adapters.py        24 models behind one scikit-learn-style interface
 ├── backtest.py, charts.py        walk-forward backtests, efficient frontier, risk contribution
 ├── holdings.py                   positions, transactions, cash, valuation, rebalancing, XIRR
-├── benchmarks.py                 TWR, BIST100/USD/gold, CPI (TCMB EVDS / OECD)
+├── benchmarks.py                 TWR, benchmarks in TRY/USD/EUR, CPI for TR/US/DE
 ├── insights.py, model_guide.py   commentary and model guide
 ├── i18n.py, locales.py           Türkçe / English / Deutsch
 ├── store.py, report.py           per-user storage (SQLite/Postgres), weekly email
 └── web/                          Streamlit UI (app.py, holdings_page.py, ui.py)
 ```
 
-Data stays where you run it. Prices come from Yahoo Finance; inflation from TCMB EVDS or OECD.
+Data stays where you run it. Prices come from Yahoo Finance; inflation from TCMB EVDS, FRED/BLS, Deutsche Bundesbank or OECD.
 
 ## 🗺️ Roadmap
 

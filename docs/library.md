@@ -47,7 +47,7 @@ Other modules you may find useful:
 | Module | What's inside |
 |---|---|
 | `portfolio_models.holdings` | positions, transactions, cash, valuation, XIRR, rebalancing |
-| `portfolio_models.benchmarks` | TWR index, benchmark comparison, CPI (EVDS/OECD) |
+| `portfolio_models.benchmarks` | TWR index, benchmark comparison in TRY/USD/EUR, CPI for TR/US/DE (`fetch_cpi_best(region=...)`) |
 | `portfolio_models.charts` | efficient frontier, risk contributions (Plotly) |
 | `portfolio_models.insights` | rule-based commentary |
 | `portfolio_models.model_guide` | model guide and metrics glossary in TR/EN/DE |

@@ -173,7 +173,7 @@ TERMS = {
 
 - Portföy Modelleri **eğitim ve araştırma amaçlı**, ücretsiz ve açık kaynaklı bir araçtır. **Yatırım tavsiyesi değildir.**
 - Sonuçlar ve yorumlar geçmiş verilere dayanır; geçmiş performans gelecekteki sonuçları garanti etmez.
-- Piyasa verileri Yahoo Finance'ten, enflasyon verileri TCMB EVDS ve OECD'den alınır; doğruluğu ve sürekliliği garanti edilmez.
+- Piyasa verileri Yahoo Finance'ten, enflasyon verileri TCMB EVDS, FRED/BLS, Deutsche Bundesbank ve OECD'den alınır; doğruluğu ve sürekliliği garanti edilmez.
 - Araç "olduğu gibi" sunulur; kullanımından doğan kayıplardan geliştirici sorumlu tutulamaz.
 - Hizmet önceden haber verilmeksizin değiştirilebilir veya durdurulabilir.
 - Gizlilik ile ilgili ayrıntılar için [Gizlilik Politikası](?page=privacy&lang=tr).
@@ -187,7 +187,7 @@ Kaynak kodu MIT lisansıyla: [github.com/ozanbayhan/portfolio-models](https://gi
 
 - Portfolio Models is a free, open-source tool **for education and research**. **It is not investment advice.**
 - Results and comments are based on historical data; past performance does not guarantee future results.
-- Market data comes from Yahoo Finance and inflation data from the CBRT (EVDS) and OECD; accuracy and availability are not guaranteed.
+- Market data comes from Yahoo Finance and inflation data from the CBRT (EVDS), FRED/BLS, Deutsche Bundesbank and OECD; accuracy and availability are not guaranteed.
 - The tool is provided "as is"; the developer is not liable for any losses arising from its use.
 - The service may be changed or discontinued without notice.
 - For privacy details see the [Privacy Policy](?page=privacy&lang=en).
@@ -201,7 +201,7 @@ Source code under the MIT licence: [github.com/ozanbayhan/portfolio-models](http
 
 - Portfolio-Modelle ist ein kostenloses Open-Source-Werkzeug **für Bildung und Forschung**. **Es stellt keine Anlageberatung dar.**
 - Ergebnisse und Kommentare beruhen auf historischen Daten; vergangene Wertentwicklung ist keine Garantie für die Zukunft.
-- Marktdaten stammen von Yahoo Finance, Inflationsdaten von der türkischen Zentralbank (EVDS) und der OECD; Richtigkeit und Verfügbarkeit werden nicht garantiert.
+- Marktdaten stammen von Yahoo Finance, Inflationsdaten von der türkischen Zentralbank (EVDS), FRED/BLS, der Deutschen Bundesbank und der OECD; Richtigkeit und Verfügbarkeit werden nicht garantiert.
 - Das Werkzeug wird „wie besehen“ bereitgestellt; der Entwickler haftet nicht für Verluste aus seiner Nutzung.
 - Der Dienst kann ohne Ankündigung geändert oder eingestellt werden.
 - Einzelheiten zum Datenschutz finden Sie in der [Datenschutzerklärung](?page=privacy&lang=de).

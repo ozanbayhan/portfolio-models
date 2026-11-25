@@ -76,8 +76,16 @@ Funds with a price history join the value chart, returns and rebalancing. The ap
 
 - **Summary** — total value, invested capital, P/L, XIRR (money-weighted), TWR (time-weighted), number of assets.
 - **Allocation** and **value over time** charts.
-- **Comparison** — your TWR against BIST100, USD/TRY, gold and CPI, each as "what if every deposit had gone there".
-  Real (inflation-adjusted) returns use TCMB EVDS CPI when configured, otherwise OECD.
+- **Comparison** — your TWR against market benchmarks and inflation. Pick the reference:
+
+    | Reference | Currency | Benchmarks | Inflation (source) |
+    |---|---|---|---|
+    | 🇹🇷 TRY · Turkish CPI | TRY | BIST100, USD/TRY, gram gold | TÜFE — TCMB EVDS (with `PM_EVDS_API_KEY`), else OECD |
+    | 🇺🇸 USD · US CPI | USD | S&P 500, BIST100 in USD, gold (USD/oz) | CPI-U — FRED, then BLS, else OECD |
+    | 🇩🇪 EUR · German CPI | EUR | DAX, BIST100 in EUR, gold (EUR/oz), USD/EUR | VPI — Deutsche Bundesbank (Destatis), else OECD |
+
+    In USD or EUR mode the portfolio's TRY value is converted at the daily exchange rate, so you see whether you
+    beat the dollar/euro and its inflation — not just the lira's. No API keys are needed for the US and Germany.
 - **Rebalancing** — choose a model's weights as target; get exact buy/sell quantities (whole shares for BIST) without
   overdrawing cash, plus a comment on the biggest moves. Mark assets as *fixed* to leave them untouched.
 - **📧 Weekly email** — opt in to a Monday summary (multi-user servers with email configured).

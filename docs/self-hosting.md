@@ -1,8 +1,8 @@
 # Self-hosting
 
 Portfolio Models runs anywhere Python 3.12 or Docker runs: your laptop, a home server, a VPS or a PaaS.
-Your data never leaves your machine except for the price requests to Yahoo Finance (and, if configured, TCMB EVDS / OECD
-for inflation and your SMTP server for emails).
+Your data never leaves your machine except for the price requests to Yahoo Finance, inflation requests (TCMB EVDS,
+FRED/BLS, Deutsche Bundesbank, OECD — no personal data is sent) and, if configured, your SMTP server for emails.
 
 | Mode | Who | Sign-in | Storage |
 |---|---|---|---|

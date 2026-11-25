@@ -16,11 +16,14 @@ import streamlit as st
 
 from portfolio_models import fit_weights, store
 from portfolio_models.benchmarks import (
-    BENCHMARK_TICKERS,
+    CPI_KEY,
+    REGIONS,
     benchmark_prices,
+    benchmark_tickers,
     compare,
     daily_cpi,
     fetch_cpi_best,
+    in_currency,
     inflows_by_day,
     summary as bench_summary,
     twr_index,
@@ -119,8 +122,11 @@ def _evds_key() -> str | None:
 
 
 @st.cache_data(ttl=43200, show_spinner=False)
-def cached_cpi(has_key: bool) -> tuple[pd.Series, str]:
-    return fetch_cpi_best(_evds_key() if has_key else None, "2015-01")
+def cached_cpi(has_key: bool, region: str = "TR") -> tuple[pd.Series, str]:
+    return fetch_cpi_best(_evds_key() if has_key and region == "TR" else None, "2015-01", region)
+
+
+REGION_LABELS = {"TR": "🇹🇷 TL · TÜFE", "US": "🇺🇸 USD · ABD TÜFE", "DE": "🇩🇪 EUR · Almanya TÜFE"}
 
 
 def _to_display(values: list[str]) -> dict[str, str]:
@@ -258,11 +264,25 @@ def _use_in_analysis(positions):
 # --- Karşılaştırma ---------------------------------------------------------------------
 
 
+def _series_label(c: str, region: str) -> str:
+    if c == CPI_KEY:
+        return t(REGIONS[region]["cpi_label"])
+    if c == "Portföyüm" and region != "TR":
+        return f'{t("Portföyüm")} ({REGIONS[region]["currency"]})'
+    return t(c)
+
+
 def _comparison(port_vals: pd.Series, inflows: pd.Series | None, years: int) -> None:
     st.subheader(t("Karşılaştırma"))
     if port_vals is None or len(port_vals.dropna()) < 5:
         st.caption(t("Karşılaştırma için yeterli portföy geçmişi yok."))
         return
+    region = st.segmented_control(
+        t("Para birimi ve enflasyon"), list(REGION_LABELS), default="TR", key="cmp_region",
+        format_func=lambda r: t(REGION_LABELS[r]), label_visibility="collapsed",
+        help=t("Karşılaştırmayı TL ve Türkiye TÜFE'si, dolar ve ABD TÜFE'si ya da euro ve Almanya TÜFE'si ile "
+               "yapın. Yabancı para seçildiğinde portföyün TL değeri günlük kurla çevrilir."),
+    ) or "TR"
     period = st.segmented_control(t("Dönem"), list(PERIODS), default="1 yıl", key="cmp_period", format_func=t,
                                   label_visibility="collapsed") or "1 yıl"
     end = port_vals.index.max()
@@ -275,22 +295,25 @@ def _comparison(port_vals: pd.Series, inflows: pd.Series | None, years: int) -> 
         start = end - pd.Timedelta(days=p)
     start = max(start, port_vals.index.min())
     try:
-        bclose, _ = cached_market(tuple((KIND_YAHOO, tk) for tk in BENCHMARK_TICKERS), years)
+        bclose, _ = cached_market(tuple((KIND_YAHOO, tk) for tk in benchmark_tickers(region)), years)
     except Exception as exc:  # noqa: BLE001
         st.warning(t("Benchmark verisi alınamadı: {err}", err=exc))
         return
-    index = twr_index(port_vals, inflows)
-    cpi, cpi_source = cached_cpi(bool(_evds_key()))
-    bench = benchmark_prices(bclose)
+    index = in_currency(twr_index(port_vals, inflows), bclose, region)
+    cpi, cpi_source = cached_cpi(bool(_evds_key()), region)
+    bench = benchmark_prices(bclose, region)
     norm = compare(index, bench, daily_cpi(cpi, bench.index.union(index.index)), start, end)
     if norm.empty:
         st.caption(t("Seçilen dönem için veri yok."))
         return
     fig = go.Figure()
     for c in norm.columns:
-        dash = "dot" if c == "Enflasyon (TÜFE)" else None
+        dash = "dot" if c == CPI_KEY else None
         width = 3 if c == "Portföyüm" else 1.5
-        fig.add_scatter(x=norm.index, y=norm[c], name=t(c), mode="lines", line=dict(dash=dash, width=width))
+        line = dict(dash=dash, width=width)
+        if c == CPI_KEY:
+            line["color"] = "#6B7280"  # enflasyon her bölgede aynı nötr renkte; portföy rengiyle karışmasın
+        fig.add_scatter(x=norm.index, y=norm[c], name=_series_label(c, region), mode="lines", line=line)
     fig.add_hline(y=100, line_width=1, line_color="gray", opacity=0.4)
     fig.update_layout(height=400, margin=dict(t=10, b=10, l=10, r=10), yaxis_title=t("Başlangıç = 100"),
                       legend=dict(orientation="h", y=-0.12), hovermode="x unified")
@@ -299,13 +322,16 @@ def _comparison(port_vals: pd.Series, inflows: pd.Series | None, years: int) -> 
     if not s.empty:
         for col in ("Başlangıç", "Bitiş"):
             s[col] = [pd.Timestamp(v).strftime("%d.%m.%Y") for v in s[col]]
-        s["Seri"] = s["Seri"].map(t)
+        s["Seri"] = [_series_label(c, region) for c in s["Seri"]]
         for col in ("Toplam getiri", "Yıllık", "Reel (TÜFE'ye göre)"):
             # Streamlit, Styler'ın na_rep'ini her zaman uygulamıyor; boşları metin olarak "—" yap.
             s[col] = [f"{v:+.1%}" if pd.notna(v) else "—" for v in s[col]]
         s = s.rename(columns=t)
         st.dataframe(s, hide_index=True, width="stretch")
     notes = [t("Portföy getirisi zaman ağırlıklıdır (TWR): para yatırma/çekme ve alımların etkisi ayıklanır.")]
+    if region != "TR":
+        notes.append(t("Tüm seriler {cur} cinsindendir; portföyün TL değeri günlük kurla çevrilir.",
+                       cur=REGIONS[region]["currency"]))
     if not cpi.empty:
         notes.append(t("TÜFE: {src}, {month} ayına kadar; sonrası için reel getiri hesaplanmaz.",
                        src=cpi_source, month=f"{cpi.index.max():%m.%Y}"))

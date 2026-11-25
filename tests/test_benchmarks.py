@@ -79,3 +79,74 @@ def test_parse_evds_formats():
     s = parse_evds_cpi(payload, "TP.FG.J0")
     assert list(s.index.strftime("%Y-%m-%d")) == ["2025-11-15", "2025-12-15", "2026-01-15"]
     assert s.iloc[-1] == 3300.0
+
+
+# --- ABD ve Almanya ----------------------------------------------------------------------
+
+from portfolio_models import benchmarks as bm  # noqa: E402
+
+
+def test_parse_fred_cpi():
+    csv = "observation_date,CPIAUCNS\n2026-08-01,334.980\n2026-09-01,.\n2026-10-01,337.511\n"
+    s = bm.parse_fred_cpi(csv)
+    assert list(s.index.strftime("%Y-%m-%d")) == ["2026-08-15", "2026-10-15"]  # "." eksik ay atlanır
+    assert s.iloc[-1] == pytest.approx(337.511)
+
+
+def test_parse_bls_cpi_skips_annual_average():
+    payload = {"Results": {"series": [{"data": [
+        {"year": "2026", "period": "M10", "value": "337.511"},
+        {"year": "2025", "period": "M13", "value": "320.0"},
+        {"year": "2025", "period": "M12", "value": "324.1"},
+    ]}]}}
+    s = bm.parse_bls_cpi(payload)
+    assert list(s.index.strftime("%Y-%m")) == ["2025-12", "2026-10"]
+
+
+def test_parse_bbk_cpi():
+    text = ("DATAFLOW;BBK_STD_FREQ;TIME_PERIOD;OBS_VALUE;BBK_UNIT\n"
+            "BBK:BBDP1(1.0);M;2026-09;126.6;2020=100\n"
+            "BBK:BBDP1(1.0);M;2026-10;126.5;2020=100\n")
+    s = bm.parse_bbk_cpi(text)
+    assert list(s.index.strftime("%Y-%m-%d")) == ["2026-09-15", "2026-10-15"]
+    assert s.iloc[0] == pytest.approx(126.6)
+
+
+def test_fetch_cpi_best_region_fallbacks(monkeypatch):
+    good = pd.Series([1.0], index=pd.to_datetime(["2026-10-15"]))
+
+    def boom(*a, **k):
+        raise OSError("down")
+
+    monkeypatch.setattr(bm, "fetch_cpi_fred", boom)
+    monkeypatch.setattr(bm, "fetch_cpi_bls", lambda start: good)
+    assert bm.fetch_cpi_best(None, "2025-01", "US")[1] == "BLS CPI-U"
+
+    monkeypatch.setattr(bm, "fetch_cpi_bundesbank", boom)
+    seen = {}
+    monkeypatch.setattr(bm, "fetch_cpi", lambda start, country="TUR": seen.setdefault("c", country) and good)
+    assert bm.fetch_cpi_best(None, "2025-01", "DE")[1] == "OECD" and seen["c"] == "DEU"
+
+
+def test_benchmarks_in_usd_and_eur():
+    idx = pd.bdate_range("2026-01-05", periods=3)
+    closes = pd.DataFrame({"XU100.IS": [10000.0, 10000, 11000], "USDTRY=X": [40.0, 40, 44],
+                           "EURTRY=X": [50.0, 50, 50], "GC=F": [3000.0, 3000, 3300],
+                           "^GSPC": [6000.0, 6000, 6600], "^GDAXI": [20000.0, 20000, 20000]}, index=idx)
+    us = bm.benchmark_prices(closes, "US")
+    assert set(us.columns) == {"S&P 500", "BIST100 (USD)", "Altın (USD)"}
+    assert us["BIST100 (USD)"].iloc[-1] == pytest.approx(11000 / 44)
+    de = bm.benchmark_prices(closes, "DE")
+    assert set(de.columns) == {"DAX", "BIST100 (EUR)", "Altın (EUR)", "Dolar (USD/EUR)"}
+    assert de["Altın (EUR)"].iloc[-1] == pytest.approx(3300 * 44 / 50)
+    assert bm.benchmark_tickers("DE")[0] == "^GDAXI" and "EURTRY=X" in bm.benchmark_tickers("DE")
+
+
+def test_in_currency_removes_lira_depreciation():
+    idx = pd.bdate_range("2026-01-05", periods=3)
+    closes = pd.DataFrame({"USDTRY=X": [40.0, 42, 44]}, index=idx)
+    # TL'de %10 kazanan ama TL de %10 değer kaybettiyse dolar bazında getiri sıfırdır
+    twr = pd.Series([1.0, 1.05, 1.10], index=idx)
+    usd = bm.in_currency(twr, closes, "US")
+    assert usd.iloc[-1] / usd.iloc[0] == pytest.approx(1.0)
+    assert bm.in_currency(twr, closes, "TR") is twr

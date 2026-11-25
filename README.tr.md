@@ -46,7 +46,7 @@ ağırlıklı (TWR) getiri, BIST100, dolar ve altına karşı enflasyondan arın
 - 📥 **Aracı kurum ekstresi içe aktarma** — Türkçe, İngilizce ve Almanca sütun adlarını tanır, tekrarları atlar
 - 🏦 **TEFAS fonları** — TEFAS'tan indirilen CSV/Excel ya da elle girilen fiyat geçmişi
 - ⚖️ **Yeniden dengeleme önerisi** — adet adet alım/satım, BIST için tam adet, nakdi eksiye düşürmeden
-- 📊 **Benchmark ve enflasyon** — BIST100, dolar, gram altın, TÜFE (TCMB EVDS ya da OECD); nominal ve reel getiri
+- 📊 **Benchmark ve enflasyon** — TL, dolar ya da euro bazında BIST100, S&P 500, DAX, altın; Türkiye, ABD ya da Almanya TÜFE'si (TCMB EVDS, FRED/BLS, Bundesbank; yedek olarak OECD); nominal ve reel getiri
 - 📧 **Haftalık e-posta özeti** (isteğe bağlı)
 - 🌐 **Üç dil** — Türkçe, English, Deutsch
 - 👥 **Çok ya da tek kullanıcı** — Google ile giriş ve kullanıcıya özel kayıt, ya da ayarsız yerel mod

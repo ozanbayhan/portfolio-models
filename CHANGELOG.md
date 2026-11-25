@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **US and German inflation:** the comparison can now run in USD against US CPI (FRED, BLS fallback) with S&P 500,
+  or in EUR against German CPI (Deutsche Bundesbank / Destatis VPI) with DAX — alongside TRY and Turkish CPI.
+  No API keys needed; OECD is the fallback for all three countries.
+
 ## [0.2.1] — 2026-11-25
 
 ### Fixed
