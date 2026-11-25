@@ -1,0 +1,51 @@
+# Portfolio Models — self-hosting
+#
+#   Tek kullanıcı (en basit):           docker compose up -d
+#   Çok kullanıcı + Postgres:           docker compose --profile postgres up -d
+#   Haftalık e-posta zamanlayıcısı:     docker compose --profile email up -d
+#
+# Ayarlar: .env dosyası (bkz. .env.example ve docs/self-hosting.md)
+
+services:
+  app:
+    image: ghcr.io/ozanbayhan/portfolio-models:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PM_PORT:-8501}:8501"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - pm-data:/data
+
+  db:
+    image: postgres:17-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: portfolio_models
+      POSTGRES_USER: portfolio_models
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - pm-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio_models"]
+      interval: 10s
+      retries: 5
+
+  mailer:
+    image: ghcr.io/ozanbayhan/portfolio-models:latest
+    build: .
+    profiles: ["email"]
+    restart: unless-stopped
+    command: ["weekly"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - pm-data:/data
+
+volumes:
+  pm-data:
+  pm-db:

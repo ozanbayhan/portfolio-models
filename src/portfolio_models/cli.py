@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -36,11 +37,51 @@ def _add_data_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--out", default="results", help="Çıktı klasörü")
 
 
+THEME = {
+    "theme.primaryColor": "#4F46E5",
+    "theme.font": "sans serif",
+}
+
+
+def serve(args) -> None:
+    """Streamlit'i paketle gelen web arayüzüyle başlatır."""
+    import subprocess
+    import sys
+
+    app = Path(__file__).resolve().parent / "web" / "app.py"
+    env = dict(os.environ)
+    data_dir = Path(args.data_dir).expanduser()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    env["PM_DATA_DIR"] = str(data_dir)
+    if not args.multi_user:
+        env.setdefault("PM_LOCAL_MODE", "1")
+    cmd = [sys.executable, "-m", "streamlit", "run", str(app), "--server.port", str(args.port),
+           "--server.address", args.host, "--server.headless", "true", "--browser.gatherUsageStats", "false"]
+    for k, v in THEME.items():
+        cmd += [f"--{k}", v]
+    print(f"Portföy Modelleri → http://{'localhost' if args.host in ('0.0.0.0', '::') else args.host}:{args.port}")
+    print(f"Veri klasörü: {data_dir}" + ("" if args.multi_user else "  (yerel mod: giriş yok, tek kullanıcı)"))
+    raise SystemExit(subprocess.call(cmd, env=env))
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="portfolio-models", description="Portföy modelleri")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("list", help="Mevcut modelleri listele")
+
+    sv = sub.add_parser("serve", help="Web arayüzünü başlat (varsayılan: yerel mod, giriş gerektirmez)")
+    sv.add_argument("--port", type=int, default=8501)
+    sv.add_argument("--host", default="localhost", help="Sunucuda dışarıya açmak için 0.0.0.0")
+    sv.add_argument("--data-dir", default=os.environ.get("PM_DATA_DIR", "~/.portfolio-models"),
+                    help="Yerel veritabanı klasörü (varsayılan ~/.portfolio-models)")
+    sv.add_argument("--multi-user", action="store_true",
+                    help="Yerel modu kapat (Google girişi ve veritabanı .streamlit/secrets.toml ya da ortam "
+                         "değişkenleriyle ayarlanmalı; bkz. docs/self-hosting.md)")
+
+    rp = sub.add_parser("report", help="Haftalık e-posta özetlerini gönder (cron/zamanlayıcı için)")
+    rp.add_argument("--dry-run", action="store_true", help="Göndermeden yalnızca hesapla")
+    rp.add_argument("--out", help="E-posta HTML'lerini bu klasöre de yaz")
 
     w = sub.add_parser("weights", help="Güncel veriyle her modelin ağırlıklarını hesapla")
     _add_data_args(w)
@@ -53,6 +94,15 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     pd.set_option("display.width", 200)
     pd.set_option("display.max_columns", 50)
+
+    if args.cmd == "serve":
+        serve(args)
+        return
+    if args.cmd == "report":
+        from .report import main as report_main
+
+        report_main((["--dry-run"] if args.dry_run else []) + (["--out", args.out] if args.out else []))
+        return
 
     if args.cmd == "list":
         for name, desc in list_models():

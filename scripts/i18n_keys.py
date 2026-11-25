@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-FILES = [ROOT / "app.py", ROOT / "holdings_page.py", *sorted((ROOT / "src" / "portfolio_models").glob("*.py"))]
+FILES = sorted((ROOT / "src" / "portfolio_models").rglob("*.py"))
 
 
 def literal_keys() -> set[str]:

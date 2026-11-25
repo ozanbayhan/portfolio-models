@@ -46,7 +46,7 @@ from .holdings import (
 
 SETTINGS_KIND = "settings"
 WEEKLY_KEY = "weekly_email"
-APP_URL = "https://portfolio-models.streamlit.app"
+APP_URL = os.environ.get("APP_URL", "https://portfolio-models.streamlit.app").rstrip("/")
 
 
 # --- Tercih ----------------------------------------------------------------------

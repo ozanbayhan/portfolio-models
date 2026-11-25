@@ -1,0 +1,23 @@
+# Arayüz teması (Streamlit Cloud, Docker ve `portfolio-models serve` için ortak)
+[theme]
+base = "light"
+primaryColor = "#4F46E5"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F7FB"
+textColor = "#0F172A"
+font = "sans serif"
+baseRadius = "0.6rem"
+showSidebarBorder = true
+
+[theme.sidebar]
+backgroundColor = "#F8FAFC"
+
+[server]
+headless = true
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

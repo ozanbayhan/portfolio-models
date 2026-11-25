@@ -95,10 +95,13 @@ def cached_market(assets: tuple[tuple[str, str], ...], years: int):
 
 
 def _evds_key() -> str | None:
+    import os
+
     try:
-        return st.secrets.get("evds_api_key") or None
+        key = st.secrets.get("evds_api_key")
     except Exception:  # noqa: BLE001 - secrets dosyası yoksa
-        return None
+        key = None
+    return key or os.environ.get("PM_EVDS_API_KEY") or None
 
 
 @st.cache_data(ttl=43200, show_spinner=False)
