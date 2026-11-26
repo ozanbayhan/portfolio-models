@@ -90,6 +90,11 @@ def main(argv: list[str] | None = None) -> None:
     mc.add_argument("--data-dir", default=None, help="Web arayüzüyle aynı klasör (varsayılan ~/.portfolio-models)")
     mc.add_argument("--read-only", action="store_true", help="Portföyü değiştiren araçları sunma")
 
+    ap = sub.add_parser("api", help="Model portföy arşivi için salt okunur JSON API (ayrı web arayüzleri için)")
+    ap.add_argument("--host", default="127.0.0.1", help="Sunucuda konteyner içinde 0.0.0.0")
+    ap.add_argument("--port", type=int, default=8770)
+    ap.add_argument("--data-dir", default=None, help="Web arayüzü ve MCP ile aynı klasör (varsayılan ~/.portfolio-models)")
+
     w = sub.add_parser("weights", help="Güncel veriyle her modelin ağırlıklarını hesapla")
     _add_data_args(w)
 
@@ -113,6 +118,13 @@ def main(argv: list[str] | None = None) -> None:
         from .mcp_server import run as run_mcp
 
         run_mcp(http=args.http, host=args.host, port=args.port)
+        return
+    if args.cmd == "api":
+        if args.data_dir:
+            os.environ["PM_DATA_DIR"] = str(Path(args.data_dir).expanduser())
+        from .api import run as run_api
+
+        run_api(host=args.host, port=args.port)
         return
     if args.cmd == "report":
         from .report import main as report_main

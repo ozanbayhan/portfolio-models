@@ -29,6 +29,7 @@ nav:
   - Metrics glossary: metrics.md
   - Model portfolios: model-portfolios.md
   - AI assistants (MCP): ai-assistants.md
+  - JSON API: api.md
   - Library & CLI: library.md
   - Architecture: architecture.md
   - FAQ: faq.md

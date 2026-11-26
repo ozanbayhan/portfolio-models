@@ -5,6 +5,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-11-26
+
+### Added
+- **JSON API** (`portfolio-models api`, Docker command `api`): read-only endpoints for the model portfolio archive —
+  cards, rankings, detail, optimisation analysis of one portfolio and of **all portfolios together** (`/api/analysis`:
+  the firm's rank among the models, closest and best model, and per model how often it beat the firms), and
+  comparison. Prices refresh after the BIST and US closes and whenever the archive changes; responses are cached
+  and warmed up. See `docs/api.md`.
+
 ## [0.4.0] — 2026-11-26
 
 ### Added
@@ -82,7 +91,8 @@ All notable changes to this project are documented here. The format follows
 - 24 portfolio models on skfolio, Riskfolio-Lib and PyPortfolioOpt behind one interface.
 - Walk-forward backtests, CLI (`list`, `weights`, `backtest`), Streamlit UI, CI.
 
-[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.1...v0.2.2

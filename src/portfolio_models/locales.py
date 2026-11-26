@@ -850,4 +850,7 @@ CATALOG: dict[str, dict[str, str]] = {
     'Yıllık oynaklık; düşük olan üstte.': E('Annual volatility; lowest first.',
         'Jährliche Volatilität; niedrigste zuerst.'),
     'Başlangıçtan': E('Since start', 'Seit Beginn'),
+    "Modeller yalnızca revizyon tarihinden önceki fiyatları görür.": E(
+        "Models only see prices before the revision date.",
+        "Die Modelle sehen nur Kurse vor dem Revisionsdatum."),
 }

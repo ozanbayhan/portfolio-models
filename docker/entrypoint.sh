@@ -4,6 +4,7 @@
 #   report  — haftalık e-posta özetlerini bir kez gönder
 #   weekly  — her pazartesi 06:00 UTC'de report çalıştıran zamanlayıcı
 #   mcp     — yapay zekâ asistanları için MCP sunucusu (stdio; --http ile HTTP)
+#   api     — model portföy arşivi için salt okunur JSON API (port 8770)
 set -eu
 
 SECRETS=/app/.streamlit/secrets.toml
@@ -46,6 +47,9 @@ case "$cmd" in
   report)
     export DB_URL="${PM_DATABASE_URL:-sqlite:///${PM_DATA_DIR:-/data}/portfolios.db}"
     exec portfolio-models report "$@"
+    ;;
+  api)
+    exec portfolio-models api --host 0.0.0.0 --port "${PM_API_PORT:-8770}" --data-dir "${PM_DATA_DIR:-/data}" "$@"
     ;;
   mcp)
     exec portfolio-models mcp --data-dir "${PM_DATA_DIR:-/data}" "$@"
