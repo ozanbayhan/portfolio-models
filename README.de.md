@@ -15,7 +15,7 @@ Ergebnis einen verständlichen Kommentar.
 
 [English](README.md) · [Türkçe](README.tr.md) · **Deutsch**
 
-[**Live-Demo ausprobieren →**](https://portfolio-models.streamlit.app?lang=de) &nbsp;·&nbsp; [Dokumentation](https://ozanbayhan.github.io/portfolio-models) &nbsp;·&nbsp; [Selbst hosten](#-selbst-hosten)
+[**Live-Demo ausprobieren →**](https://portfolio-models.streamlit.app?lang=de) &nbsp;·&nbsp; [**Musterportfolio-Archiv →**](https://portfolio.orbitcashflow.com?lang=de) &nbsp;·&nbsp; [Dokumentation](https://ozanbayhan.github.io/portfolio-models) &nbsp;·&nbsp; [Selbst hosten](#-selbst-hosten)
 
 <img src="docs/assets/demo.gif" alt="Demo: Beispielportfolio, Vergleich mit Inflation, 24 Modelle, effiziente Grenze, Kommentare und Backtest" width="900">
 
