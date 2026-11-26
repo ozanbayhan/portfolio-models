@@ -39,3 +39,22 @@ background.
 
 The analysis, rankings and performance are a statistical summary of past prices computed by this app and are not
 investment advice.
+
+## Optimiser (on demand)
+
+The same calculations as the web app's **📊 Model analysis** page, for any symbols. `POST` with a JSON body:
+
+```json
+{"bist_symbols": ["THYAO", "ASELS"], "symbols": ["VOO", "GLD"], "start": "2023-01-01", "end": null,
+ "models": ["hrp", "min_variance"], "max_weight_pct": 40}
+```
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/lab/models` | All 24 models with description, guide (Markdown) and whether they support a weight cap; default selection; metrics guide |
+| `POST /api/lab/optimize` | Weights of each model, efficient frontier, model and asset risk/return points, risk contributions, weight metrics, comments; normalised prices and correlation |
+| `POST /api/lab/backtest` | Walk-forward backtest (`train` 63–756, `test` 5–126 trading days): summary, cumulative return and drawdown series, comment |
+| `POST /api/lab/black-litterman` | Max-Sharpe weights without and with your `views` (`absolute` / `relative`, annual %) and `tau` |
+
+At most 25 symbols. Heavy jobs run two at a time (`PM_LAB_CONCURRENCY`); others wait up to 30 s, then get `503`.
+Results are cached per input for the day. A backtest of all 24 models can take one to two minutes.

@@ -853,4 +853,7 @@ CATALOG: dict[str, dict[str, str]] = {
     "Modeller yalnızca revizyon tarihinden önceki fiyatları görür.": E(
         "Models only see prices before the revision date.",
         "Die Modelle sehen nur Kurse vor dem Revisionsdatum."),
+    "Black-Litterman (kurumun ima ettiği getiriler + geçmiş veri)": E(
+        "Black-Litterman (firm's implied returns + past data)",
+        "Black-Litterman (vom Anbieter implizierte Renditen + historische Daten)"),
 }

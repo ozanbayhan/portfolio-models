@@ -85,6 +85,13 @@ def test_detail_and_analysis(client):
     assert {p["key"] for p in a["paths"]} >= {"firm", "equal_weighted", "BIST100"}
     assert a["closest_model"]["key"] in keys
     assert set(a["decomposition"]) == {"selection", "weighting", "total_vs_benchmark"}
+    assert "black_litterman" in keys
+    ch = a["charts"]
+    assert len(ch["frontier"]) > 5 and {p["key"] for p in ch["points"]} >= {"firm", "black_litterman"}
+    assert {x["asset"] for x in ch["assets"]} == {"VOO", "QQQ", "Nakit USD"}
+    assert next(x for x in ch["assets"] if x["asset"] == "VOO")["implied_return"] is not None
+    assert ch["correlation"]["assets"] == ["VOO", "QQQ"] and ch["correlation"]["matrix"][0][0] == 1.0
+    assert set(ch["risk_contributions"][0]) >= {"asset", "label", "firm", "black_litterman"}
     old = client.get("/api/portfolios/acme-global-etf/analysis?revision=2026-01-05&benchmark=none").json()
     assert old["revision"] == "2026-01-05" and old["benchmark"] is None
     assert client.get("/api/portfolios/acme-global-etf/analysis?revision=2020-01-01").status_code == 400

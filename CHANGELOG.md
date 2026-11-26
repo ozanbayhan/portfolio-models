@@ -5,6 +5,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-26
+
+### Added
+- **Black-Litterman in the optimisation analysis** (8th model): the firm's weights are reverse-optimised into implied
+  returns (prior), blended with each asset's past return (views), then a max-Sharpe portfolio is built.
+- **Optimiser endpoints** `/api/lab/*`: the web app's model analysis for any symbols — weights of all 24 models,
+  efficient frontier, risk contributions, comments and guides, walk-forward backtest, Black-Litterman with your own
+  views, prices and correlation (`portfolio_models.lab`).
+- Chart data in `/api/portfolios/{slug}/analysis` (`charts`): efficient frontier, risk/return points of the firm and
+  models, past/implied/Black-Litterman returns per asset, risk contributions of every portfolio, correlation matrix.
+
 ## [0.5.0] — 2026-11-26
 
 ### Added
@@ -91,7 +102,8 @@ All notable changes to this project are documented here. The format follows
 - 24 portfolio models on skfolio, Riskfolio-Lib and PyPortfolioOpt behind one interface.
 - Walk-forward backtests, CLI (`list`, `weights`, `backtest`), Streamlit UI, CI.
 
-[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.2.2...v0.3.0

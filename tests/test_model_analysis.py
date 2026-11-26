@@ -93,3 +93,32 @@ def test_in_ccy():
     assert usd["A"].iloc[0] == pytest.approx(p["A"].iloc[0] / 40)
     with pytest.raises(ValueError):
         ma.in_ccy(p, closes, "EUR")
+
+
+def test_black_litterman_implied_and_posterior():
+    p = market()
+    w = pd.Series({"A": 0.5, "B": 0.2, "C": 0.3})
+    rets = ma._window_returns(p, list(w.index), p.index[300])
+    pi = ma.implied_returns(w, rets)
+    cov = rets.cov() * 252
+    assert pi.values == pytest.approx((ma.RISK_AVERSION * cov @ w).values)
+    # kurumun ağırlıkları π altında maks. Sharpe portföyü olmalı (ters optimizasyonun tanımı)
+    assert ma.max_sharpe_weights(pi, cov).values == pytest.approx(w.values, abs=0.02)
+    mu = ma.bl_posterior(w, rets)
+    q = rets.mean() * 252
+    lo, hi = pd.concat([pi, q], axis=1).min(axis=1), pd.concat([pi, q], axis=1).max(axis=1)
+    assert ((mu >= lo - 0.05) & (mu <= hi + 0.05)).all()  # sonsal, önsel ile görüş arasında
+    bw = ma.black_litterman_weights(w, rets)
+    assert bw.sum() == pytest.approx(1) and (bw >= 0).all()
+
+
+def test_analysis_has_black_litterman_and_chart_data():
+    p = market()
+    c = cfg((f"{p.index[300]:%Y-%m-%d}", [("A", 30), ("B", 40), ("C", 20), ("cash", 10)]))
+    a = ma.analyze(c, p)
+    assert ma.BLACK_LITTERMAN in a.weights and a.weights[ma.BLACK_LITTERMAN].sum() == pytest.approx(1)
+    assert a.weights.loc["Nakit TRY", ma.BLACK_LITTERMAN] == pytest.approx(0.1)
+    assert {"vol", "past_return", "implied_return", "bl_return"} <= set(a.assets.columns)
+    assert list(a.correlation.index) == ["A", "B", "C"] and len(a.frontier) > 5
+    assert a.risk_contrib_all.sum().round(6).eq(1).all()
+    assert ma.model_desc(ma.BLACK_LITTERMAN).startswith("Black-Litterman") and ma.model_desc("hrp")

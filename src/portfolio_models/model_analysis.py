@@ -32,8 +32,12 @@ from .holdings import asset_label
 TRADING_DAYS = 252
 LOOKBACK_DAYS = 365
 MIN_OBS = 60  # model uydurmak için gereken en az günlük getiri
+BLACK_LITTERMAN = "black_litterman"
 ANALYSIS_MODELS = ["equal_weighted", "inverse_volatility", "min_variance", "max_sharpe_shrunk", "risk_parity",
-                   "hrp", "max_diversification"]
+                   "hrp", "max_diversification", BLACK_LITTERMAN]
+BL_LABEL = "Black-Litterman (kurumun ima ettiği getiriler + geçmiş veri)"
+RISK_AVERSION = 2.5  # ters optimizasyonda δ (Black-Litterman literatüründeki yaygın değer)
+BL_TAU = 0.05
 ACTUAL = "__actual__"  # sonuç tablolarında kurumun kendi portföyünü gösteren satır anahtarı
 
 
@@ -74,6 +78,59 @@ def _split(w: pd.Series, rets: pd.DataFrame) -> tuple[list[str], list[str]]:
     return free, fixed
 
 
+def model_desc(key: str) -> str | None:
+    """Analiz modelinin Türkçe açıklaması (t() ile çevrilir); bilinmiyorsa None."""
+    from .models import MODELS
+
+    if key == BLACK_LITTERMAN:
+        return BL_LABEL
+    return MODELS[key][1] if key in MODELS else None
+
+
+# --- Black-Litterman: kurumun ima ettiği beklentiler + geçmiş veri ---------------------------------
+
+
+def implied_returns(w: pd.Series, rets: pd.DataFrame, delta: float = RISK_AVERSION) -> pd.Series:
+    """Ters optimizasyon: kurumun ağırlıkları ortalama-varyans optimumu olsaydı ima ettiği yıllık getiriler, π = δΣw."""
+    cov = rets[w.index].cov() * TRADING_DAYS
+    return delta * cov @ (w / w.sum())
+
+
+def bl_posterior(w: pd.Series, rets: pd.DataFrame, tau: float = BL_TAU, delta: float = RISK_AVERSION) -> pd.Series:
+    """Black-Litterman sonsal beklenti: önsel = kurumun ima ettiği getiriler (π), görüşler = her varlığın geçmiş
+    ortalama getirisi (P = I), belirsizlik Ω = diag(τΣ) (He-Litterman). Yıllık."""
+    cov = (rets[w.index].cov() * TRADING_DAYS).values
+    pi = implied_returns(w, rets, delta).values
+    q = (rets[w.index].mean() * TRADING_DAYS).values
+    ts = tau * cov
+    omega_inv = np.diag(1 / np.maximum(np.diag(ts), 1e-12))
+    a = np.linalg.inv(np.linalg.inv(ts) + omega_inv)
+    mu = a @ (np.linalg.inv(ts) @ pi + omega_inv @ q)
+    return pd.Series(mu, index=w.index)
+
+
+def max_sharpe_weights(mu: pd.Series, cov: pd.DataFrame) -> pd.Series:
+    """Açığa satışsız en yüksek getiri/risk portföyü (risksiz faiz 0)."""
+    from scipy.optimize import minimize
+
+    n = len(mu)
+    m, c = mu.values, cov.values
+
+    def neg(x):
+        v = float(x @ c @ x)
+        return -float(x @ m) / np.sqrt(v) if v > 0 else 0.0
+
+    res = minimize(neg, np.full(n, 1 / n), bounds=[(0, 1)] * n, method="SLSQP",
+                   constraints=[{"type": "eq", "fun": lambda x: x.sum() - 1}], options={"maxiter": 500})
+    x = np.clip(res.x, 0, None)
+    return pd.Series(x / x.sum(), index=mu.index)
+
+
+def black_litterman_weights(w: pd.Series, rets: pd.DataFrame) -> pd.Series:
+    mu = bl_posterior(w, rets)
+    return max_sharpe_weights(mu, rets[w.index].cov() * TRADING_DAYS)
+
+
 def fit_models(w: pd.Series, rets: pd.DataFrame, models: list[str]) -> tuple[pd.DataFrame, list[str]]:
     """Kurumun ağırlıkları (ACTUAL sütunu) ve her modelin aynı varlıklar için ağırlıkları (satır = varlık)."""
     from .backtest import fit_weights
@@ -89,7 +146,14 @@ def fit_models(w: pd.Series, rets: pd.DataFrame, models: list[str]) -> tuple[pd.
         return out, notes
     free_share = float(w[free].sum())
     errors: dict[str, str] = {}
-    fitted = fit_weights(rets[free].dropna(), models, on_error=lambda n, e: errors.__setitem__(n, str(e)))
+    clean_rets = rets[free].dropna()
+    fitted = fit_weights(clean_rets, [m for m in models if m != BLACK_LITTERMAN],
+                         on_error=lambda n, e: errors.__setitem__(n, str(e)))
+    if BLACK_LITTERMAN in models:
+        try:
+            fitted[BLACK_LITTERMAN] = black_litterman_weights(w[free], clean_rets)
+        except Exception as exc:  # noqa: BLE001
+            errors[BLACK_LITTERMAN] = str(exc)
     for m in fitted.columns:
         col = pd.Series(0.0, index=w.index)
         col[free] = fitted[m].clip(lower=0) / fitted[m].clip(lower=0).sum() * free_share
@@ -250,6 +314,33 @@ class Analysis:
     scores: dict[str, dict]  # aynı anahtarlar: scorecard
     decomposition: dict[str, float | None]  # seçim etkisi / ağırlık etkisi
     notes: list[str] = field(default_factory=list)
+    assets: pd.DataFrame | None = None  # varlık başına: vol, past_return, implied_return, bl_return (yıllık)
+    correlation: pd.DataFrame | None = None
+    frontier: pd.DataFrame | None = None  # etkin sınır: vol, ret
+    risk_contrib_all: pd.DataFrame | None = None  # satır = varlık, sütun = ACTUAL + modeller
+
+
+def _charts_data(actual: pd.Series, rets: pd.DataFrame, table: pd.DataFrame) -> dict:
+    """Grafikler için: varlık istatistikleri, ima edilen/BL getirileri, korelasyon, etkin sınır, risk katkıları."""
+    from .charts import efficient_frontier
+
+    out: dict = {}
+    free, _ = _split(actual, rets)
+    r = rets.reindex(columns=actual.index).fillna(0.0)
+    if len(r) >= MIN_OBS:
+        a = pd.DataFrame({"vol": r.std() * math.sqrt(TRADING_DAYS), "past_return": r.mean() * TRADING_DAYS})
+        if len(free) >= 2:
+            fr = rets[free].dropna()
+            a.loc[free, "implied_return"] = implied_returns(actual[free], fr)
+            a.loc[free, "bl_return"] = bl_posterior(actual[free], fr)
+            out["correlation"] = fr.corr()
+            try:
+                out["frontier"] = efficient_frontier(fr, size=25)
+            except Exception:  # noqa: BLE001
+                pass
+        out["assets"] = a
+        out["risk_contrib_all"] = pd.DataFrame({c: risk_contributions(table[c], rets) for c in table.columns})
+    return out
 
 
 def analyze(cfg: dict, prices: pd.DataFrame, benchmark: str | None = "BIST100",
@@ -307,7 +398,7 @@ def analyze(cfg: dict, prices: pd.DataFrame, benchmark: str | None = "BIST100",
         "total_vs_benchmark": act - bt if act is not None and bt is not None else None,
     }
     return Analysis(rev["date"], table, profiles, risk_contributions(actual, rets), closest, paths, scores,
-                    decomposition, sorted(set(notes), key=notes.index))
+                    decomposition, sorted(set(notes), key=notes.index), **_charts_data(actual, rets, table))
 
 
 # --- Sıralama (keşfet / lider tablosu) ---------------------------------------------------------

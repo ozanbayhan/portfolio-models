@@ -268,11 +268,9 @@ def _results(comp: mp.Comparison, period: str, currency: str) -> None:
 
 
 def _model_name(m: str) -> str:
-    from portfolio_models.models import MODELS
-
     if m == ma.ACTUAL:
         return t("Kurumun portföyü")
-    return t(MODELS[m][1]) if m in MODELS else display_label(m)
+    return t(ma.model_desc(m)) if ma.model_desc(m) else display_label(m)
 
 
 RANK_LABELS = {

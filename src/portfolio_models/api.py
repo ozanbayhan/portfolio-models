@@ -107,12 +107,10 @@ def series_points(s: pd.Series, every: int = 1) -> list[list]:
 
 
 def model_label(key: str) -> str:
-    from .models import MODELS
-
     if key == ma.ACTUAL:
         return T("Kurumun portföyü")
-    if key in MODELS:
-        return T(MODELS[key][1])
+    if ma.model_desc(key):
+        return T(ma.model_desc(key))
     if key in mp.BENCHMARKS:
         return display_label(key)
     return key
@@ -261,15 +259,13 @@ def _summary(a: Archive, name: str, cfg: dict, prices: pd.DataFrame) -> dict:
 
 
 def meta(a: Archive) -> dict:
-    from .models import MODELS
-
     return a.base() | {
         "currencies": list(CURRENCIES),
         "benchmarks": [{"key": b, "label": display_label(b)} for b in mp.BENCHMARKS],
         "rankings": [{"key": k, "label": T(lbl), "help": T(hlp), "higher_is_better": ma.RANKINGS[k][1],
                       "field": ma.RANKINGS[k][0]} for k, (lbl, hlp) in RANKING_TEXT.items()],
         "windows": [{"key": k, "label": T(v)} for k, v in WINDOW_TEXT.items()],
-        "analysis_models": [{"key": k, "label": T(MODELS[k][1])} for k in ma.ANALYSIS_MODELS],
+        "analysis_models": [{"key": k, "label": T(ma.model_desc(k))} for k in ma.ANALYSIS_MODELS],
         "countries": sorted({c.get("country") for c in a.configs.values() if c.get("country")}),
         "count": len(a.configs),
         "disclaimer": T(DISCLAIMER),
@@ -416,6 +412,33 @@ def analysis_overview(a: Archive, currency: str = "TRY", benchmark: str | None =
     }
 
 
+def _chart_payload(res: ma.Analysis, key) -> dict:
+    """Grafik verileri: etkin sınır, portföylerin ve varlıkların risk/getiri konumu, risk katkıları, korelasyon,
+    kurumun ima ettiği getiriler ve Black-Litterman beklentileri. Hepsi revizyon öncesi veriyle, yıllık."""
+    out: dict = {"frontier": [], "points": [], "assets": [], "risk_contributions": [], "correlation": None}
+    if res.frontier is not None:
+        out["frontier"] = [[float(v), float(r)] for v, r in zip(res.frontier["vol"], res.frontier["ret"])]
+    for k, p in res.profiles.items():
+        if p.ann_vol is not None:
+            out["points"].append({"key": key(k), "label": model_label(k), "is_firm": k == ma.ACTUAL,
+                                  "vol": p.ann_vol, "ret": p.ann_ret})
+    if res.assets is not None:
+        for asset, row in res.assets.iterrows():
+            out["assets"].append({"asset": asset, "label": display_label(asset), "vol": row.get("vol"),
+                                  "past_return": row.get("past_return"),
+                                  "implied_return": row.get("implied_return"), "bl_return": row.get("bl_return"),
+                                  "firm_weight": float(res.weights.loc[asset, ma.ACTUAL])})
+    if res.risk_contrib_all is not None:
+        rc = res.risk_contrib_all
+        out["risk_contributions"] = [{"asset": asset, "label": display_label(asset),
+                                      **{key(c): float(rc.loc[asset, c]) for c in rc.columns}} for asset in rc.index]
+    if res.correlation is not None:
+        c = res.correlation
+        out["correlation"] = {"assets": [display_label(x) for x in c.index],
+                              "matrix": [[round(float(v), 4) for v in row] for row in c.values]}
+    return out
+
+
 def analysis(a: Archive, slug: str, currency: str = "TRY", benchmark: str | None = "BIST100",
              revision: str | None = None) -> dict:
     name = a.name_of(slug)
@@ -453,6 +476,7 @@ def analysis(a: Archive, slug: str, currency: str = "TRY", benchmark: str | None
                         for k, sc in res.scores.items()],
         "decomposition": res.decomposition,
         "notes": res.notes,
+        "charts": _chart_payload(res, key),
     }
 
 
@@ -471,6 +495,77 @@ def compare(a: Archive, slugs: list[str], currency: str = "TRY", benchmark: str 
                                                   "max_dd")},
          "points": series_points(s)} for n, s in comp.indices.items()],
         "warnings": comp.warnings}
+
+
+# --- Model analizi laboratuvarı (istek üzerine hesap) -------------------------------------------------------
+
+LAB_SLOTS = threading.BoundedSemaphore(int(os.environ.get("PM_LAB_CONCURRENCY", "2")))
+LAB_WAIT = 30  # sn: boş hesap yuvası beklenir, sonra 503
+_lab_cache: dict[str, Any] = {}
+_lab_lock = threading.Lock()
+LAB_CACHE_SIZE = 64
+
+
+def _lab_cached(key: str, fn):
+    with _lab_lock:
+        if key in _lab_cache:
+            _lab_cache[key] = _lab_cache.pop(key)  # LRU: en sona taşı
+            return _lab_cache[key]
+    out = fn()
+    with _lab_lock:
+        _lab_cache[key] = out
+        while len(_lab_cache) > LAB_CACHE_SIZE:
+            _lab_cache.pop(next(iter(_lab_cache)))
+    return out
+
+
+def _lab_inputs(body: dict):
+    from . import lab
+
+    start = body.get("start") or f"{pd.Timestamp(date.today()) - pd.DateOffset(years=3):%Y-%m-%d}"
+    end = body.get("end") or None
+    key = json.dumps([sorted(body.get("symbols") or []), sorted(body.get("bist_symbols") or []), start, end,
+                      f"{date.today()}"])
+    prices, returns, missing = _lab_cached("data:" + key, lambda: lab.load(body.get("symbols"), body.get("bist_symbols"),
+                                                                           start, end))
+    mw = body.get("max_weight_pct")
+    max_weight = None if mw in (None, "", 100) else float(mw) / 100
+    if max_weight is not None and not 0.05 <= max_weight <= 1:
+        raise ApiError(400, "max_weight_pct must be between 5 and 100.")
+    return prices, returns, missing, max_weight
+
+
+def lab_models(body: dict) -> dict:
+    from . import lab, model_guide
+
+    return {"models": lab.model_list(), "defaults": lab.DEFAULT_MODELS, "max_symbols": lab.MAX_SYMBOLS,
+            "metrics_guide": model_guide.metrics_markdown()}
+
+
+def lab_optimize(body: dict) -> dict:
+    from . import lab
+
+    prices, returns, missing, max_weight = _lab_inputs(body)
+    models = lab.check_models(body.get("models"))
+    return {"missing_symbols": missing, "data": lab.data_view(prices, returns),
+            "result": lab.optimize(returns, models, max_weight)}
+
+
+def lab_backtest(body: dict) -> dict:
+    from . import lab
+
+    _, returns, missing, max_weight = _lab_inputs(body)
+    models = lab.check_models(body.get("models"))
+    return {"missing_symbols": missing, "result": lab.run_backtest(returns, models, int(body.get("train", 252)),
+                                                                   int(body.get("test", 21)), max_weight)}
+
+
+def lab_black_litterman(body: dict) -> dict:
+    from . import lab
+
+    _, returns, missing, _ = _lab_inputs(body)
+    return {"missing_symbols": missing,
+            "result": lab.black_litterman(returns, body.get("views") or [], float(body.get("tau", 0.05)))}
 
 
 # --- Starlette uygulaması ---------------------------------------------------------------------------------
@@ -516,6 +611,53 @@ def create_app(archive: Archive | None = None, background: bool = True):
 
         return handler
 
+    def lab_endpoint(fn, heavy=True):
+        from starlette.concurrency import run_in_threadpool
+
+        async def handler(request: Request):
+            lang = request.query_params.get("lang", "tr")
+            lang = lang if lang in ("tr", "en", "de") else "tr"
+            if request.method == "POST":
+                raw = await request.body()
+                if len(raw) > 20_000:
+                    return JSONResponse({"error": "Request too large."}, status_code=413)
+                try:
+                    body = json.loads(raw or b"{}")
+                    assert isinstance(body, dict)
+                except Exception:  # noqa: BLE001
+                    return JSONResponse({"error": "Body must be a JSON object."}, status_code=400)
+            else:
+                body = {}
+
+            def work():
+                set_lang(lang)
+                key = f"{fn.__name__}:{lang}:" + json.dumps(body, sort_keys=True, default=str) + f":{date.today()}"
+                if not heavy:
+                    return _lab_cached(key, lambda: clean(fn(body)))
+                with _lab_lock:
+                    hit = _lab_cache.get(key)
+                if hit is not None:
+                    return hit
+                if not LAB_SLOTS.acquire(timeout=LAB_WAIT):
+                    raise ApiError(503, "Busy, try again in a moment.")
+                try:
+                    return _lab_cached(key, lambda: clean(fn(body)))
+                finally:
+                    LAB_SLOTS.release()
+
+            try:
+                out = await run_in_threadpool(work)
+            except ApiError as e:
+                return JSONResponse({"error": str(e)}, status_code=e.status)
+            except (ValueError, TypeError, KeyError) as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
+            except Exception:  # noqa: BLE001
+                log.exception("lab error")
+                return JSONResponse({"error": "Internal error"}, status_code=500)
+            return JSONResponse(out)
+
+        return handler
+
     def health(request: Request):
         return JSONResponse(clean({"ok": True, "version": app_version, "data_version": arc.version} | arc.base()))
 
@@ -524,7 +666,9 @@ def create_app(archive: Archive | None = None, background: bool = True):
             "name": "Portfolio Models API", "version": app_version,
             "docs": "https://ozanbayhan.github.io/portfolio-models/api/",
             "endpoints": ["/api/health", "/api/meta", "/api/portfolios", "/api/leaderboard",
-                          "/api/portfolios/{slug}", "/api/portfolios/{slug}/analysis", "/api/analysis", "/api/compare?slugs=a,b"],
+                          "/api/portfolios/{slug}", "/api/portfolios/{slug}/analysis", "/api/analysis",
+                          "/api/lab/models", "POST /api/lab/optimize", "POST /api/lab/backtest",
+                          "POST /api/lab/black-litterman", "/api/compare?slugs=a,b"],
         })
 
     routes = [
@@ -534,11 +678,15 @@ def create_app(archive: Archive | None = None, background: bool = True):
         Route("/api/leaderboard", endpoint(leaderboard)),
         Route("/api/compare", endpoint(compare)),
         Route("/api/analysis", endpoint(analysis_overview)),
+        Route("/api/lab/models", lab_endpoint(lab_models, heavy=False)),
+        Route("/api/lab/optimize", lab_endpoint(lab_optimize), methods=["POST"]),
+        Route("/api/lab/backtest", lab_endpoint(lab_backtest), methods=["POST"]),
+        Route("/api/lab/black-litterman", lab_endpoint(lab_black_litterman), methods=["POST"]),
         Route("/api/portfolios/{slug}", endpoint(detail, "slug")),
         Route("/api/portfolios/{slug}/analysis", endpoint(analysis, "slug")),
     ]
     origins = [o.strip() for o in os.environ.get("PM_API_CORS", "*").split(",") if o.strip()]
-    middleware = [Middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET"], allow_headers=["*"]),
+    middleware = [Middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["*"]),
                   Middleware(GZipMiddleware, minimum_size=1000)]
 
     def startup():

@@ -39,7 +39,7 @@ left out):
 
 How does a firm's portfolio look to an optimiser? For the chosen revision, the **same assets** are given to the
 optimisation models (equal weight, inverse volatility, minimum variance, max Sharpe with shrinkage, risk parity, HRP,
-maximum diversification) using **only prices before the revision date** (up to one year), so nothing looks ahead.
+maximum diversification and Black-Litterman) using **only prices before the revision date** (up to one year), so nothing looks ahead.
 
 - **Weights** of the firm next to each model's, and how far each model is from the firm (½ Σ|wᵢ − aᵢ|: the share of
   the portfolio that would have to move). The closest model tells you which style the firm's weighting resembles.
@@ -49,6 +49,15 @@ maximum diversification) using **only prices before the revision date** (up to o
   next one. The chart and table compare the firm's path with the models' and the benchmark.
 - **Selection vs. weighting:** the difference to the benchmark since the first revision is split into *asset
   selection* (same assets equally weighted minus benchmark) and *weighting* (firm minus equal weight).
+
+**Black-Litterman with the firm's view.** Reverse optimisation asks which annual returns the firm must expect for its
+weights to be mean-variance optimal: π = δΣw (δ = 2.5). These implied returns are the prior; each asset's past mean
+return is a view (P = I, Ω = diag(τΣ), τ = 0.05). The posterior expected returns give a long-only max-Sharpe
+portfolio — the firm's conviction tempered by the data. The page charts past, implied and Black-Litterman returns per
+asset.
+
+**Charts** (all with data before the revision): efficient frontier with the firm, every model and every asset; stacked
+weights and risk contributions; correlation heat map.
 
 Cash and assets without enough price history (60 trading days) keep the firm's weight; the models only re-weight the
 rest.
