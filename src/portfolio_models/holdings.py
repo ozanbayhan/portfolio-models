@@ -551,8 +551,38 @@ def fetch_market_data(positions: list[Position], years: int = 3) -> tuple[pd.Dat
         closes = closes.to_frame(all_tickers[0])
     if list(closes.columns) == ["Close"]:
         closes.columns = all_tickers
+    closes = _cross_fx(closes.sort_index(), fx_needed, start)
     closes = closes.sort_index().ffill()
     return closes, currencies
+
+
+def _cross_fx(closes: pd.DataFrame, fx_needed: set[str], start) -> pd.DataFrame:
+    """Yahoo'da doğrudan TL kuru olmayan dövizler (ör. CADTRY=X) için kuru dolar üzerinden türetir:
+    XXX/TRY = XXX/USD × USD/TRY."""
+    import yfinance as yf
+
+    # Yahoo bazı kurlar için yalnızca son günü verir (ör. CADTRY=X): yarısından azı doluysa eksik say
+    missing = sorted(t for t in fx_needed if t not in closes or closes[t].notna().mean() < 0.5)
+    if not missing:
+        return closes
+    bases = [t.removesuffix("TRY=X") for t in missing if t != "USDTRY=X"]
+    extra = [f"{b}USD=X" for b in bases] + (["USDTRY=X"] if "USDTRY=X" not in closes
+                                            or closes["USDTRY=X"].notna().mean() < 0.5 else [])
+    if not extra:
+        return closes
+    raw = yf.download(extra, start=str(start), auto_adjust=True, progress=False, threads=False)
+    cx = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
+    if list(cx.columns) == ["Close"]:
+        cx.columns = extra
+    closes = closes.join(cx, how="outer", rsuffix="_x").sort_index()
+    usd_try = closes["USDTRY=X"].ffill() if "USDTRY=X" in closes else None
+    for b in bases:
+        col = f"{b}USD=X"
+        if usd_try is not None and col in closes and not closes[col].dropna().empty:
+            cross = closes[col].ffill() * usd_try
+            direct = closes[f"{b}TRY=X"] if f"{b}TRY=X" in closes else None
+            closes[f"{b}TRY=X"] = direct.fillna(cross) if direct is not None else cross
+    return closes
 
 
 def _fx_series(closes: pd.DataFrame, currency: str) -> pd.Series:

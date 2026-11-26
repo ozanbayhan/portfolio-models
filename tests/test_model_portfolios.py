@@ -88,3 +88,34 @@ def test_examples_are_valid_and_store_roundtrip(tmp_path):
             mp.validate_holdings(r["holdings"])
         store.save_portfolio(eng, "u@x.com", name, c, kind=mp.STORE_KIND)
     assert len(mp.load_all(eng, "u@x.com")) == 3 and mp.load_all(eng, "v@x.com") == {}
+
+
+def test_model_portfolio_limit_is_separate(tmp_path, monkeypatch):
+    from portfolio_models import store
+
+    engine = store.make_engine(f"sqlite:///{tmp_path / 'p.db'}")
+    monkeypatch.setattr(store, "MAX_PORTFOLIOS_PER_USER", 2)
+    monkeypatch.setitem(store.MAX_PER_KIND, "model_portfolio", 4)
+    for i in range(4):
+        store.save_portfolio(engine, "a@b.c", f"m{i}", {"revisions": []}, kind=mp.STORE_KIND)
+    with pytest.raises(ValueError):
+        store.save_portfolio(engine, "a@b.c", "m4", {"revisions": []}, kind=mp.STORE_KIND)
+    store.save_portfolio(engine, "a@b.c", "p0", {}, kind="portfolio")
+    store.save_portfolio(engine, "a@b.c", "p1", {}, kind="portfolio")
+    with pytest.raises(ValueError):
+        store.save_portfolio(engine, "a@b.c", "p2", {}, kind="portfolio")
+
+
+def test_cross_fx_via_usd(monkeypatch):
+    import yfinance as yf
+
+    from portfolio_models import holdings
+
+    idx = pd.bdate_range("2026-01-02", periods=3)
+    closes = pd.DataFrame({"VEQT.TO": [40.0, 41, 42], "USDTRY=X": [35.0, 36, 37],
+                           "CADTRY=X": [float("nan"), float("nan"), 27.0]}, index=idx)
+    monkeypatch.setattr(yf, "download", lambda tickers, **k: pd.DataFrame(
+        {("Close", "CADUSD=X"): [0.7, 0.7, 0.75]}, index=idx))
+    out = holdings._cross_fx(closes, {"CADTRY=X", "USDTRY=X"}, "2026-01-01")
+    assert out["CADTRY=X"].tolist() == pytest.approx([24.5, 25.2, 27.0])  # doğrudan kur varsa o kullanılır
+    assert holdings._cross_fx(out, {"CADTRY=X"}, "2026-01-01") is out  # eksik yoksa dokunmaz

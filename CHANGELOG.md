@@ -5,6 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-11-26
+
+### Fixed
+- Currencies without a direct TRY rate on Yahoo Finance (e.g. CAD: `CADTRY=X` returns only the latest day) are now
+  converted through USD (`CADUSD=X × USDTRY=X`); sparse direct series are filled from the cross rate.
+
+### Changed
+- The model portfolio archive has its own limit per user (`PM_MAX_MODEL_PORTFOLIOS`, default 500); other saved items
+  keep the limit of 50.
+
 ## [0.6.0] — 2026-11-26
 
 ### Added
@@ -102,7 +112,8 @@ All notable changes to this project are documented here. The format follows
 - 24 portfolio models on skfolio, Riskfolio-Lib and PyPortfolioOpt behind one interface.
 - Walk-forward backtests, CLI (`list`, `weights`, `backtest`), Streamlit UI, CI.
 
-[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/ozanbayhan/portfolio-models/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/ozanbayhan/portfolio-models/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ozanbayhan/portfolio-models/compare/v0.3.0...v0.4.0

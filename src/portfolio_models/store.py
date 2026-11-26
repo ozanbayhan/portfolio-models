@@ -7,6 +7,8 @@ yalnızca sunucuda (Streamlit secrets) durur, tarayıcıya gönderilmez.
 
 from __future__ import annotations
 
+import os
+
 from .i18n import t as T
 
 import json
@@ -90,6 +92,12 @@ model_portfolios = Table(
 TABLES = {"portfolio": portfolios, "holdings": holdings, "fund_prices": fund_prices, "settings": settings,
           "model_portfolio": model_portfolios}
 MAX_PORTFOLIOS_PER_USER = 50
+# Model portföy arşivi (kurumların yayımladığı portföyler) çok daha büyük olabilir.
+MAX_PER_KIND = {"model_portfolio": int(os.environ.get("PM_MAX_MODEL_PORTFOLIOS", "500"))}
+
+
+def max_per_user(kind: str) -> int:
+    return MAX_PER_KIND.get(kind, MAX_PORTFOLIOS_PER_USER)
 
 
 def _t(kind: str) -> Table:
@@ -148,8 +156,8 @@ def save_portfolio(engine: Engine, email: str, name: str, config: Any, kind: str
             conn.execute(update(t).where(where).values(config=payload, updated_at=now))
             return
         count = len(conn.execute(select(t.c.id).where(t.c.user_email == email)).all())
-        if count >= MAX_PORTFOLIOS_PER_USER:
-            raise ValueError(T("En fazla {n} portföy kaydedebilirsiniz.", n=MAX_PORTFOLIOS_PER_USER))
+        if count >= max_per_user(kind):
+            raise ValueError(T("En fazla {n} portföy kaydedebilirsiniz.", n=max_per_user(kind)))
         conn.execute(
             insert(t).values(user_email=email, name=name, config=payload, updated_at=now)
         )
